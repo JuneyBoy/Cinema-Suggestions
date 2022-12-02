@@ -2,12 +2,6 @@ import pandas as pd
 import numpy as np
 from operator import itemgetter
 
-# importing preprocessed data from csvs
-filtered_movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
-genre_bins = pd.read_csv("Data_Files/genre_binaries.csv")
-cast_bins = pd.read_csv("Data_Files/cast_binaries.csv")
-keyword_bins = pd.read_csv("Data_Files/keyword_binaries.csv")
-
 # takes two lists of the same length that hold binary values
 def getCosineSimilarity(v1, v2):
     dot_prod = np.dot(v1, v2)
@@ -19,7 +13,7 @@ def getCosineSimilarity(v1, v2):
 
 
 # find the KNN of user_movie using cosine similarity
-def getKNNMovies(user_movie, k=10):
+def getKNNMovies(user_movie, movies, genres, casts, keywords, k=10):
 
     # holds tuples in the following format -> (movie_title, movie_rating, similarity)
     similarities = [
@@ -29,21 +23,19 @@ def getKNNMovies(user_movie, k=10):
             # aggregating the cosine similarities of the 3 attributes
             (
                 getCosineSimilarity(
-                    genre_bins[user_movie].to_numpy(), genre_bins[movie].to_numpy()
+                    genres[user_movie].to_numpy(), genres[movie].to_numpy()
                 )
                 + getCosineSimilarity(
-                    cast_bins[user_movie].to_numpy(), cast_bins[movie].to_numpy()
+                    casts[user_movie].to_numpy(), casts[movie].to_numpy()
                 )
                 + getCosineSimilarity(
-                    keyword_bins[user_movie].to_numpy(), keyword_bins[movie].to_numpy()
+                    keywords[user_movie].to_numpy(), keywords[movie].to_numpy()
                 )
             )
             / 3,
         )
-        # iterates through filtered_movies_df
-        for movie, rating in zip(
-            filtered_movies_df["original_title"], filtered_movies_df["vote_average"]
-        )
+        # iterates through movies
+        for movie, rating in zip(movies["original_title"], movies["vote_average"])
     ]
 
     # gets the K movies that had the highest similarity scores (skips the first one because it will always be the user defined movie)
@@ -63,12 +55,13 @@ def weightedKNNPrediction(scores, similarities):
 
 
 # evaluates KNN algorithm using RMSE
-def getRMSE():
-    # gets the KNN for every movie in filtered_movies_df
+def getRMSE(movies, genres, casts, keywords):
+    # gets the KNN for every movie in movies
     all_movie_nearest_neighbors = [
-        getKNNMovies(movie) for movie in filtered_movies_df["original_title"]
+        getKNNMovies(movie, movies, genres, casts, keywords)
+        for movie in zip(movies["original_title"])
     ]
-    # gets the predicted scores for every movie in filtered_movies_df
+    # gets the predicted scores for every movie in movies
     predicted_scores = np.array(
         [
             weightedKNNPrediction(
@@ -78,21 +71,21 @@ def getRMSE():
             for neighbors in all_movie_nearest_neighbors
         ]
     )
-    # gets the actual scores for every movie in filtered_movies_df
-    actual_scores = np.array([score for score in filtered_movies_df["vote_average"]])
+    # gets the actual scores for every movie in movies
+    actual_scores = np.array([score for score in movies["vote_average"]])
 
     return np.sqrt((np.square(predicted_scores - actual_scores)).mean())
 
 
-user_movie = input("Enter a movie: ")
-similarities = getKNNMovies(user_movie)
+# user_movie = input("Enter a movie: ")
+# similarities = getKNNMovies(user_movie)
 
-predicted_score = weightedKNNPrediction(
-    [similarity[1] for similarity in similarities],
-    [similarity[2] for similarity in similarities],
-)
+# predicted_score = weightedKNNPrediction(
+#     [similarity[1] for similarity in similarities],
+#     [similarity[2] for similarity in similarities],
+# )
 
-print(f"Predicted Score: {predicted_score}")
-print("Top 10 Most Similar Movies Predicted Score was Based On")
-for similarity in similarities:
-    print(f"{similarity[0]} {similarity[1]}")
+# print(f"Predicted Score: {predicted_score}")
+# print("Top 10 Most Similar Movies Predicted Score was Based On")
+# for similarity in similarities:
+#     print(f"{similarity[0]} {similarity[1]}")
