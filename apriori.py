@@ -363,7 +363,7 @@ freq_itemsets = apriori(df, min_support=0.07, use_colnames=True)
 # high lift suggests there is some relation between the two movies and most of the
 # users who have watched movie M1 are also likely to watch movie M2.
 rules_df = create_association_rules(freq_itemsets, metric="lift", metric_threshold=1)
-rules_df = rules_df.sort_values(by=["lift"], ascending=False)
+rules_df.sort_values(by=["lift"], ascending=False, inplace=True)
 
 # print information of frequent itemsets and rules
 print(freq_itemsets)
@@ -377,13 +377,15 @@ while not user_movie:
         print("Movie not found in dataset.")
         user_movie = None
 
-df_MIB = rules_df[
+# get dataframe with user inputted movie in the antecedent
+df_user_movie = rules_df[
     rules_df["antecedents"].apply(lambda x: len(x) == 1 and next(iter(x)) == user_movie)
 ]
 
 # list of unique movies in order of descending lift
-movies = df_MIB["consequents"].values
+movies = df_user_movie["consequents"].values
 
+# get movie recommendations
 movie_list = []
 for movie in movies:
     for title in movie:
