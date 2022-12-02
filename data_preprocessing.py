@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import json
 import re
 
@@ -61,15 +62,17 @@ for movie_genres in genres:
 
 # used to calculate cosine similarity between movies
 def generate_binary(unique_list, movie_specific_list):
-    binaries = [0] * len(unique_list)
+    binaries = np.zeros(len(unique_list))
     for item in movie_specific_list:
         binaries[unique_list.index(item)] = 1
     return binaries
 
 
-movies_df["genre_binaries"] = movies_df["genres"].apply(
-    lambda x: generate_binary(unique_genres, x)
-)
+genre_bin_df = {
+    title: generate_binary(unique_genres, genres)
+    for title, genres in zip(movies_df["original_title"], movies_df["genres"])
+}
+
 
 # couldn't convert to JSON easily because of some names like O'Brien having a single quote in them
 # using regex instead to parse string for each actor name
@@ -90,9 +93,10 @@ for cast in casts:
 
 pd.DataFrame(unique_cast_members).to_csv("Unique_Actors_List.csv")
 
-movies_df["cast_binaries"] = movies_df["cast"].apply(
-    lambda x: generate_binary(unique_cast_members, x)
-)
+cast_bin_df = {
+    title: generate_binary(unique_cast_members, cast)
+    for title, cast in zip(movies_df["original_title"], movies_df["cast"])
+}
 
 
 # Parsing the crew info from the DF is a mess, can't find an easy solution to get the director so just skipping that for now and might come back to it later if we have time
@@ -139,10 +143,14 @@ for movie_keywords in keywords:
         if keyword not in unique_keywords:
             unique_keywords.append(keyword)
 
-movies_df["keyword_binaries"] = movies_df["keywords"].apply(
-    lambda x: generate_binary(unique_keywords, x)
-)
+keyword_bin_df = {
+    title: generate_binary(unique_keywords, keywords)
+    for title, keywords in zip(movies_df["original_title"], movies_df["keywords"])
+}
 
 movies_df.drop("crew", axis=1, inplace=True)
 
 movies_df.to_csv("Data_Files/movies_filtered.csv")
+pd.DataFrame(genre_bin_df).to_csv("Data_Files/genre_binaries.csv")
+pd.DataFrame(cast_bin_df).to_csv("Data_Files/cast_binaries.csv")
+pd.DataFrame(keyword_bin_df).to_csv("Data_Files/keyword_binaries.csv")
