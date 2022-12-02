@@ -33,17 +33,16 @@ predicted_score = knn.weightedKNNPrediction(
     [movie[1] for movie in similarities], [movie[2] for movie in similarities]
 )
 
-st.markdown("##### Predicted Score")
-st.write(round(predicted_score, 2))
+st.write("Predicted Score: ", round(predicted_score, 2))
 
-st.markdown("##### Actual Score")
+actual_score = movie_info.loc[
+    movie_info["original_title"] == user_movie, "vote_average"
+].iloc[0]
+
+st.write("Actual Score: ", round(actual_score, 2))
+
 st.write(
-    round(
-        movie_info.loc[movie_info["original_title"] == user_movie, "vote_average"].iloc[
-            0
-        ],
-        2,
-    )
+    "Error (%): ", round(abs((predicted_score - actual_score) / actual_score) * 100, 2)
 )
 
 # convert results into dataframe (might change this so the function returns a dataframe so no conversion is necessary)
