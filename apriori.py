@@ -32,7 +32,7 @@ def data_preprocessing():
     return (movies_df, ratings_df, df)
 
 
-def plot_ratings_distribution():
+def plot_ratings_distribution(ratings_df):
     plt.figure(figsize=(10, 5))
     ax = sns.countplot(data=ratings_df, x="rating")
     labels = ratings_df["rating"].value_counts().sort_index()
@@ -106,7 +106,7 @@ def combinations_generator(old_combinations):
             yield item
 
 
-def apriori(df, min_support=0.1, use_colnames=True, max_len=None):
+def apriori(df, min_support=0.1, max_len=None):
     """
     Get frequent itemsets from a DataFrame with
       - id for each transaction id
@@ -128,9 +128,6 @@ def apriori(df, min_support=0.1, use_colnames=True, max_len=None):
     min_support : float (default: 0.1)
       Minimum support threshold of the itemsets returned.
       `support = # of transactions with item(s) / total # of transactions`.
-
-    use_colnames : bool (default: False)
-      If `True`, uses the DF's column names in the returned DataFrame instead of column indices.
 
     max_len : int (default: None)
       Maximum length of the itemsets generated. If `None` (default), any itemset lengths are evaluated.
@@ -236,12 +233,11 @@ def apriori(df, min_support=0.1, use_colnames=True, max_len=None):
     freq_itemsets_df = pd.concat(res_list)
     freq_itemsets_df.columns = ["support", "itemsets"]
 
-    # replace all column indexes with the corresponding column name, if necessary
-    if use_colnames:
-        mapping = {idx: item for idx, item in enumerate(df.columns)}
-        freq_itemsets_df["itemsets"] = freq_itemsets_df["itemsets"].apply(
-            lambda x: frozenset([mapping[i] for i in x])
-        )
+    # replace all column indexes with the corresponding column name
+    mapping = {idx: item for idx, item in enumerate(df.columns)}
+    freq_itemsets_df["itemsets"] = freq_itemsets_df["itemsets"].apply(
+        lambda x: frozenset([mapping[i] for i in x])
+    )
     freq_itemsets_df.reset_index(drop=True, inplace=True)
 
     return freq_itemsets_df
@@ -368,10 +364,15 @@ def recommend_movies_apriori(
         )
     ]
 
-    # list of unique movies in order of descending lift
+    # get rules where user_movie is in the antecedent (people that watch user_movie will also watch XYZ)
+    # user_movie_rules_df = rules_df[
+    #     rules_df["antecedents"].apply(lambda x: movie_title in x)
+    # ]
+
+    # get all the movies (consequents) where the rule had user_movie (antecedent)
     movies = user_movie_rules_df["consequents"].values
 
-    # get movie recommendations
+    # list of unique movies, appended in order of descending lift
     recommended_movies = []
     for movie in movies:
         for title in movie:
@@ -385,7 +386,7 @@ def recommend_movies_apriori(
 """
 # constants for algorithms
 RATING_THRESHOLD = 3
-MIN_SUPPORT = 0.02
+MIN_SUPPORT = 0.07
 MAX_LEN = 5
 METRIC = "lift"
 METRIC_THRESHOLD = 1
@@ -421,16 +422,16 @@ while True:
         break
     if user_movie not in movies_df["title"].values:
         print("Movie not found in dataset.")
-        user_movie = None
-
-    user_movie_rules_df, recommended_movies = recommend_movies_apriori(
-        movie_title=user_movie,
-        rules_df=rules_df,
-        max_movies=10,
-    )
-
-    print(freq_itemsets)
-    print(rules_df)
-    print(user_movie_rules_df)
-    print(recommended_movies)
+    else:
+        user_movie_rules_df, recommended_movies = recommend_movies_apriori(
+            movie_title=user_movie,
+            rules_df=rules_df,
+            max_movies=10,
+        )
+        print(freq_itemsets)
+        print(rules_df)
+        print(user_movie_rules_df)
+        print(recommended_movies)
+        for movie in recommended_movies:
+            print(movie)
 """
