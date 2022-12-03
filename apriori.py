@@ -358,11 +358,10 @@ def recommend_movies_apriori(
     max_movies=7,
 ):
     # get dataframe with user inputted movie as the only item in antecedent (length of 1)
-    user_movie_rules_df = rules_df[
-        rules_df["antecedents"].apply(
-            lambda x: len(x) == 1 and next(iter(x)) == movie_title
-        )
-    ]
+    movie_mask = rules_df["antecedents"].apply(
+        lambda x: len(x) == 1 and movie_title in x
+    )
+    user_movie_rules_df = rules_df[movie_mask]
 
     # get rules where user_movie is in the antecedent (people that watch user_movie will also watch XYZ)
     # user_movie_rules_df = rules_df[
