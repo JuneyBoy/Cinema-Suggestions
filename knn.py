@@ -77,6 +77,20 @@ def getRMSE(movies, genres, casts, keywords):
     return np.sqrt((np.square(predicted_scores - actual_scores)).mean())
 
 
+def avg_rating_of_rec_by_users_who_liked_chosen_movie(
+    ratings, chosen_movie, recommendation
+):
+    ratings_for_recommendation = [
+        rec_rating * 2
+        for rec_rating, chosen_movie_rating in zip(
+            ratings[recommendation], ratings[chosen_movie]
+        )
+        if chosen_movie_rating > 2.5 and rec_rating > 0
+    ]
+
+    return np.average(ratings_for_recommendation)
+
+
 # user_movie = input("Enter a movie: ")
 # similarities = getKNNMovies(user_movie)
 
