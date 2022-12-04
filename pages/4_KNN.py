@@ -28,6 +28,8 @@ def load_data():
 
 movie_info, genres, casts, keywords = load_data()
 
+
+# TODO: when I try to return this in load_data, I get an error saying there's only 4 items to unpack not 5
 ratings_info = pd.read_csv("Data_Files/ratings_filtered.csv")
 
 # get movie from user via dropdown menu that has all the movies from the preprocessed set
@@ -47,11 +49,13 @@ if st.button("FIND RECOMMENDATIONS"):
         user_movie, movie_info, ratings_info, genres, casts, keywords, k_neighbors
     )
     # get predicted score using Weighted KNN regression
-    predicted_score = knn.weightedKNNPrediction(
+    predicted_score_all_ratings = knn.weightedKNNPrediction(
         [movie[1] for movie in recommendations], [movie[2] for movie in recommendations]
     )
-
-    st.write("Predicted Score: ", round(predicted_score, 2))
+    # get predicted score using Weighted KNN regression
+    predicted_score_users_who_liked_chosen_movie = knn.weightedKNNPrediction(
+        ratings_of_recs_from_other_users, [movie[2] for movie in recommendations]
+    )
 
     actual_score = movie_info.loc[
         movie_info["original_title"] == user_movie, "vote_average"
@@ -60,36 +64,44 @@ if st.button("FIND RECOMMENDATIONS"):
     st.write("Actual Score: ", round(actual_score, 2))
 
     st.write(
+        "Predicted Score (based on all user ratings): ",
+        round(predicted_score_all_ratings, 2),
+    )
+    st.write(
         "Error (%): ",
-        round(abs((actual_score - predicted_score) / actual_score) * 100, 2),
+        round(
+            abs((actual_score - predicted_score_all_ratings) / actual_score) * 100, 2
+        ),
     )
 
-    st.write(len(recommendations))
-    st.write(len(ratings_of_recs_from_other_users))
-
-    # ratings_of_recs_from_other_users = [
-    #     knn.avg_rating_of_rec_by_users_who_liked_chosen_movie(
-    #         ratings_info, user_movie, rec[0]
-    #     )
-    #     for rec in similarities
-    # ]
+    st.write(
+        f"Predicted Score (based on ratings of users who liked {user_movie}): ",
+        round(predicted_score_users_who_liked_chosen_movie, 2),
+    )
 
     # convert results into dataframe (might change this so the function returns a dataframe so no conversion is necessary)
     most_similar_movies_df = pd.DataFrame(
         {
             "Movie Title": [movie[0] for movie in recommendations],
-            "Rating": [movie[1] for movie in recommendations],
-            "Similarity": [movie[2] for movie in recommendations],
+            "Avg Rating of All Users": [movie[1] for movie in recommendations],
             f"Avg Rating of Users Who Liked {user_movie}": [
                 rating for rating in ratings_of_recs_from_other_users
             ],
+            "Similarity": [movie[2] for movie in recommendations],
         }
     )
     # by default index starts at 0 which would look a little funny to show the user the 0th movie
     most_similar_movies_df.index += 1
     st.markdown("##### 10 Most Similar Movies")
     # need to add formatter to round ratings
-    st.dataframe(most_similar_movies_df.style.format({"Rating": "{:.2f}"}))
+    st.table(
+        most_similar_movies_df.style.format(
+            {
+                "Avg Rating of All Users": "{:.2f}",
+                f"Avg Rating of Users Who Liked {user_movie}": "{:.2f}",
+            }
+        )
+    )
     st.markdown(
-        "A similarity of 1 would mean the movie has the exact same characteristics as your chosen movie and a similarity of 0 would mean the movie has none of the same characteristics as your chosen movie"
+        "A similarity of 1 would mean the movie has the exact same characteristics as your chosen movie and a similarity of 0 would mean the movie has none of the same characteristics as your chosen movie."
     )
