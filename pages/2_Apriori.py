@@ -11,6 +11,13 @@ def load_data():
     return apriori.data_preprocessing()
 
 
+# convert antecedents and consequents values in df from frozenset to list
+def format_rules_df(rules_df):
+    rules_df["antecedents"] = rules_df["antecedents"].apply(lambda x: list(x))
+    rules_df["consequents"] = rules_df["consequents"].apply(lambda x: list(x))
+    return rules_df
+
+
 movies_df, ratings_df, apriori_df = load_data()
 
 st.markdown(
@@ -70,7 +77,7 @@ if "rules_df" in st.session_state and "freq_itemsets" in st.session_state:
     # show user
     # make copy to prevent streamlit "autofixes" (which converts frozenset to string)
     c1.markdown("#### Association Rules")
-    c1.dataframe(st.session_state.rules_df.copy())
+    c1.dataframe(format_rules_df(st.session_state.rules_df))
 
 if start_recommend:
     if "rules_df" in st.session_state and "freq_itemsets" in st.session_state:
@@ -92,7 +99,7 @@ if start_recommend:
                 c2.markdown(" `%s`" % movie)
             # make copy to prevent streamlit "autofixes" (which converts frozenset to string)
             c2.markdown("#### Association Rules Containing `%s`" % user_movie_og)
-            c2.dataframe(user_movie_rules_df.copy())
+            c2.dataframe(format_rules_df(user_movie_rules_df))
         else:
             c2.info(
                 "Sorry, no recommendations could be made from the association rules "
