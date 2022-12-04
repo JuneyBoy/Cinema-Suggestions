@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 
 import apriori
@@ -8,13 +9,18 @@ st.set_page_config(layout="wide")
 # only needs to do this one time, so adding the cache statement will make it so this function only runs the first time the page is loaded but doesn't run again as long as the user doesn't close the tab in their browser
 @st.cache
 def load_data():
-    return apriori.data_preprocessing()
+    movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
+    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
+    df = pd.read_csv("Data_Files/movies_ratings_merged.csv", index_col="userId")
+    return movies_df, ratings_df, df
 
 
 # convert antecedents and consequents values in df from frozenset to list
 def format_rules_df(rules_df):
-    rules_df["antecedents"] = rules_df["antecedents"].apply(lambda x: list(x))
-    rules_df["consequents"] = rules_df["consequents"].apply(lambda x: list(x))
+    if not rules_df.shape[0]:
+        return rules_df
+    rules_df.loc[:, "antecedents"] = rules_df["antecedents"].apply(lambda x: list(x))
+    rules_df.loc[:, "consequents"] = rules_df["consequents"].apply(lambda x: list(x))
     return rules_df
 
 

@@ -8,7 +8,7 @@ import seaborn as sns
 
 def data_preprocessing():
     # load the data
-    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
+    ratings_df = pd.read_csv("Data_Files/ratings.csv")
     movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
 
     # remove movies with blank titles
@@ -18,7 +18,10 @@ def data_preprocessing():
     # merge the 2 df on common column: movieId (must first convert col to int). similar to SQL Join
     movies_df = movies_df.astype({"id": "int64"})
     df = pd.merge(
-        ratings_df, movies_df[["id", "title"]], left_on="movieId", right_on="id"
+        left=ratings_df,
+        right=movies_df[["id", "title"]],
+        left_on="movieId",
+        right_on="id",
     )
 
     # remove duplicated column (movieId), and useless column (timestamp)
@@ -28,6 +31,8 @@ def data_preprocessing():
     df = df.drop_duplicates(["userId", "title"])
     df = df.pivot(index="userId", columns="title", values="rating").fillna(0)
     df = df.astype("int64")
+
+    df.to_csv("Data_Files/movies_ratings_merged.csv")
 
     return (movies_df, ratings_df, df)
 
@@ -193,6 +198,7 @@ def apriori(df, min_support=0.1, max_len=None):
     while k < (max_len or float("inf")):
         k_next = k + 1
 
+        # CANDIDATE-GENERATION
         # get generator of new itemsets, convert to np array
         # reshape into matrix of rows=any, cols=k_next
         candidates_generator = combinations_generator(itemset_dict[k])
@@ -209,6 +215,7 @@ def apriori(df, min_support=0.1, max_len=None):
         # calculate supports for new combinations
         supports = calculate_support(np.array(_bools), X.shape[0])
 
+        # CANDIDATE-PRUNING
         # populate supports and itemsets if any of the supports are above threshold
         support_mask = supports >= min_support
         if any(support_mask):
@@ -238,6 +245,8 @@ def apriori(df, min_support=0.1, max_len=None):
     freq_itemsets_df["itemsets"] = freq_itemsets_df["itemsets"].apply(
         lambda x: frozenset([mapping[i] for i in x])
     )
+
+    # reset the indexes of the data frame
     freq_itemsets_df.reset_index(drop=True, inplace=True)
 
     return freq_itemsets_df
@@ -254,8 +263,8 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
 
     metric : string (default: 'support')
       Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
-      - support(A->C) = support(A+C) [aka 'support'], range: [0, 1]
-      - confidence(A->C) = support(A+C) / support(A), range: [0, 1]
+      - support(A->C) = support(A+C), range: [0, 1]
+      - confidence(A->C) = support(A->C) / support(A), range: [0, 1]
       - lift(A->C) = confidence(A->C) / support(C), range: [0, inf]
 
     metric_threshold : float (default: 0.0)
@@ -281,10 +290,10 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
     # sA: antecedent support
     # sC: consequent support
     metric_dict = {
-        "antecedent support": lambda _, sA, __: sA,
-        "consequent support": lambda _, __, sC: sC,
-        "support": lambda sAC, _, __: sAC,
-        "confidence": lambda sAC, sA, _: sAC / sA,
+        "antecedent support": lambda sAC, sA, sC: sA,
+        "consequent support": lambda sAC, sA, sC: sC,
+        "support": lambda sAC, sA, sC: sAC,
+        "confidence": lambda sAC, sA, sC: sAC / sA,
         "lift": lambda sAC, sA, sC: metric_dict["confidence"](sAC, sA, sC) / sC,
     }
     metric_names = list(metric_dict.keys())
@@ -363,11 +372,6 @@ def recommend_movies_apriori(
     )
     user_movie_rules_df = rules_df[movie_mask]
 
-    # get rules where user_movie is in the antecedent (people that watch user_movie will also watch XYZ)
-    # user_movie_rules_df = rules_df[
-    #     rules_df["antecedents"].apply(lambda x: movie_title in x)
-    # ]
-
     # get all the movies (consequents) where the rule had user_movie (antecedent)
     movies = user_movie_rules_df["consequents"].values
 
@@ -391,7 +395,10 @@ METRIC = "lift"
 METRIC_THRESHOLD = 1
 
 # get preprocessed data
-movies_df, ratings_df, df = data_preprocessing()
+# movies_df, ratings_df, df = data_preprocessing()
+movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
+ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
+df = pd.read_csv("Data_Files/movies_ratings_merged.csv", index_col="userId")
 
 # our apriori model needs data in a matrix with:
 # userId is index, columns are movie tiles, and the values
