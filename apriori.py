@@ -6,33 +6,11 @@ import pandas as pd
 import seaborn as sns
 
 
-def data_preprocessing():
+def load_data():
     # load the data
-    ratings_df = pd.read_csv("Data_Files/ratings.csv")
+    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
     movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
-
-    # remove movies with blank titles
-    title_mask = movies_df["title"].isna()
-    movies_df = movies_df.loc[title_mask == False]
-
-    # merge the 2 df on common column: movieId (must first convert col to int). similar to SQL Join
-    movies_df = movies_df.astype({"id": "int64"})
-    df = pd.merge(
-        left=ratings_df,
-        right=movies_df[["id", "title"]],
-        left_on="movieId",
-        right_on="id",
-    )
-
-    # remove duplicated column (movieId), and useless column (timestamp)
-    df = df.drop(["timestamp", "id"], axis=1)
-
-    # userId is index, columns are movie tiles, and the values are the ratings
-    df = df.drop_duplicates(["userId", "title"])
-    df = df.pivot(index="userId", columns="title", values="rating").fillna(0)
-    df = df.astype("int64")
-
-    df.to_csv("Data_Files/movies_ratings_merged.csv")
+    df = pd.read_csv("Data_Files/ratings_filtered.csv", index_col="userId")
 
     return (movies_df, ratings_df, df)
 
@@ -394,11 +372,8 @@ MAX_LEN = 5
 METRIC = "lift"
 METRIC_THRESHOLD = 1
 
-# get preprocessed data
-# movies_df, ratings_df, df = data_preprocessing()
-movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
-ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
-df = pd.read_csv("Data_Files/movies_ratings_merged.csv", index_col="userId")
+# load data
+movies_df, ratings_df, df = load_data()
 
 # our apriori model needs data in a matrix with:
 # userId is index, columns are movie tiles, and the values

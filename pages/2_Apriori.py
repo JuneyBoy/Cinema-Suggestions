@@ -9,13 +9,10 @@ st.set_page_config(layout="wide")
 # only needs to do this one time, so adding the cache statement will make it so this function only runs the first time the page is loaded but doesn't run again as long as the user doesn't close the tab in their browser
 @st.cache
 def load_data():
-    movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
-    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
-    df = pd.read_csv("Data_Files/movies_ratings_merged.csv", index_col="userId")
-    return movies_df, ratings_df, df
+    return apriori.load_data()
 
 
-# convert antecedents and consequents values in df from frozenset to list
+# convert "antecedents" and "consequents" values in df from frozenset to list
 def format_rules_df(rules_df):
     if not rules_df.shape[0]:
         return rules_df
@@ -58,7 +55,7 @@ start_apriori = c1.button("GENERATE ASSOCIATION RULES")
 # get movie from user via dropdown menu that has all the movies from the preprocessed set
 # max number of recommended movies
 c2.markdown("#### Recommend Movies")
-user_movie_og = c2.selectbox("Movie:", [title for title in movies_df["original_title"]])
+user_movie = c2.selectbox("Movie:", [title for title in movies_df["original_title"]])
 start_recommend = c2.button("FIND RECOMMENDATIONS")
 
 if start_apriori:
@@ -87,10 +84,6 @@ if "rules_df" in st.session_state and "freq_itemsets" in st.session_state:
 
 if start_recommend:
     if "rules_df" in st.session_state and "freq_itemsets" in st.session_state:
-        # convert from original title to the title used in the algorithm
-        movie_idx = movies_df.index[movies_df["original_title"] == user_movie_og][0]
-        user_movie = movies_df["title"][movie_idx]
-
         # get movie recommendations
         user_movie_rules_df, movies = apriori.recommend_movies_apriori(
             movie_title=user_movie,
@@ -99,18 +92,18 @@ if start_recommend:
         )
 
         # show user
-        c2.markdown("#### Recommended Movies (`%s`)" % user_movie_og)
+        c2.markdown("#### Recommended Movies (`%s`)" % user_movie)
         if len(movies) > 0:
             for movie in movies:
                 c2.markdown(" `%s`" % movie)
             # make copy to prevent streamlit "autofixes" (which converts frozenset to string)
-            c2.markdown("#### Association Rules Containing `%s`" % user_movie_og)
+            c2.markdown("#### Association Rules Containing `%s`" % user_movie)
             c2.dataframe(format_rules_df(user_movie_rules_df))
         else:
             c2.info(
                 "Sorry, no recommendations could be made from the association rules "
                 "with the movie `%s`...\n\r"
-                "Please try another movie." % user_movie_og
+                "Please try another movie." % user_movie
             )
 
     else:
