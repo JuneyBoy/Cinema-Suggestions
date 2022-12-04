@@ -12,15 +12,23 @@ st.markdown(
 def load_data():
     # importing preprocessed data from csvs
     filtered_movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
-    filtered_ratings_df = pd.read_csv("Data_Files/ratings_filtered.csv")
+    # filtered_ratings_df = pd.read_csv("Data_Files/ratings_filtered.csv")
     genre_bins = pd.read_csv("Data_Files/genre_binaries.csv")
     cast_bins = pd.read_csv("Data_Files/cast_binaries.csv")
     keyword_bins = pd.read_csv("Data_Files/keyword_binaries.csv")
 
-    return (filtered_movies_df, genre_bins, cast_bins, keyword_bins)
+    return (
+        filtered_movies_df,
+        # filtered_ratings_df,
+        genre_bins,
+        cast_bins,
+        keyword_bins,
+    )
 
 
 movie_info, genres, casts, keywords = load_data()
+
+ratings_info = pd.read_csv("Data_Files/ratings_filtered.csv")
 
 # get movie from user via dropdown menu that has all the movies from the preprocessed set
 user_movie = st.selectbox(
@@ -35,12 +43,12 @@ k_neighbors = st.slider(
 
 if st.button("FIND RECOMMENDATIONS"):
     # get the actual ratings and similarities for each movie
-    similarities = knn.getKNNMovies(
-        user_movie, movie_info, genres, casts, keywords, k_neighbors
+    recommendations, ratings_of_recs_from_other_users = knn.getKNNMovies(
+        user_movie, movie_info, ratings_info, genres, casts, keywords, k_neighbors
     )
     # get predicted score using Weighted KNN regression
     predicted_score = knn.weightedKNNPrediction(
-        [movie[1] for movie in similarities], [movie[2] for movie in similarities]
+        [movie[1] for movie in recommendations], [movie[2] for movie in recommendations]
     )
 
     st.write("Predicted Score: ", round(predicted_score, 2))
@@ -56,17 +64,22 @@ if st.button("FIND RECOMMENDATIONS"):
         round(abs((actual_score - predicted_score) / actual_score) * 100, 2),
     )
 
-    ratings_of_recs_from_other_users = [
-        knn.avg_rating_of_rec_by_users_who_liked_chosen_movie(user_movie, rec[0])
-        for rec in similarities
-    ]
+    st.write(len(recommendations))
+    st.write(len(ratings_of_recs_from_other_users))
+
+    # ratings_of_recs_from_other_users = [
+    #     knn.avg_rating_of_rec_by_users_who_liked_chosen_movie(
+    #         ratings_info, user_movie, rec[0]
+    #     )
+    #     for rec in similarities
+    # ]
 
     # convert results into dataframe (might change this so the function returns a dataframe so no conversion is necessary)
     most_similar_movies_df = pd.DataFrame(
         {
-            "Movie Title": [movie[0] for movie in similarities],
-            "Rating": [movie[1] for movie in similarities],
-            "Similarity": [movie[2] for movie in similarities],
+            "Movie Title": [movie[0] for movie in recommendations],
+            "Rating": [movie[1] for movie in recommendations],
+            "Similarity": [movie[2] for movie in recommendations],
             f"Avg Rating of Users Who Liked {user_movie}": [
                 rating for rating in ratings_of_recs_from_other_users
             ],

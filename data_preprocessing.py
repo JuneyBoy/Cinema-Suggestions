@@ -3,25 +3,18 @@ import numpy as np
 import json
 import re
 
-# # only keep movies that have a substantial vote count and decent overall review score
-# movies_df = movies_df[movies_df["vote_count"] > 300]
-# movies_df = movies_df[movies_df["vote_average"] >= 6.0]
-# # I was getting a weird error when trying to merge the metadata and credits DFs, so ensuring ID field is an int
-# movies_df["id"] = movies_df["id"].astype("int")
-
-
+# creates csv files relevant to KNN algorithm (genre, cast, and keyword binaries as well as a filtered_movies csv)
 def knn_preprocessing(filtered_movies):
     filtered_movies["id"] = filtered_movies["id"].astype("int")
     credits_df = pd.read_csv("Data_Files/credits.csv")
     credits_df["id"] = credits_df["id"].astype("int")
 
     # merge the three dfs based on IDs
-    # TODO: not merging credits df for some reason
     movies_df = pd.merge(filtered_movies, credits_df, left_on="id", right_on="id")
 
     keywords_df = pd.read_csv("Data_Files/keywords.csv")
 
-    movies_df = pd.merge(filtered_movies, keywords_df, left_on="id", right_on="id")
+    movies_df = pd.merge(movies_df, keywords_df, left_on="id", right_on="id")
 
     # 2D list, each element is a list of genres for each movie
     # converting string to JSON to get each genre
@@ -72,8 +65,6 @@ def knn_preprocessing(filtered_movies):
             if cast_member not in unique_cast_members:
                 unique_cast_members.append(cast_member)
 
-    pd.DataFrame(unique_cast_members).to_csv("Unique_Actors_List.csv")
-
     cast_bin_df = {
         title: generate_binary(unique_cast_members, cast)
         for title, cast in zip(movies_df["original_title"], movies_df["cast"])
@@ -81,29 +72,6 @@ def knn_preprocessing(filtered_movies):
 
     # Parsing the crew info from the DF is a mess, can't find an easy solution to get the director so just skipping that for now and might come back to it later if we have time
 
-    # directors = [
-    #     [
-    #         crew_member["name"]
-    #         for crew_member in json.loads(
-    #             re.sub('""[a-zA-z-]+\s[a-zA-z-\']+""|None', '" "', crew).replace("'", '"')
-    #         )
-    #         if crew_member["job"] == "Director"
-    #     ]
-    #     for crew in movies_df["crew"]
-    # ]
-
-    # unique_directors = []
-
-    # movies_df["directors"] = directors
-    # for director in directors:
-    #     if director not in director:
-    #         unique_directors.append(director)
-
-    # movies_df["directors_binaries"] = movies_df["directors"].apply(
-    #     lambda x: generate_binary(unique_directors, x)
-    # )
-
-    # same issue as cast when trying to parse (ex: new year's eve)
     # only keeping the top five keywords
     keywords = [
         [
@@ -137,18 +105,16 @@ def knn_preprocessing(filtered_movies):
     pd.DataFrame(keyword_bin_df).to_csv("Data_Files/keyword_binaries.csv")
 
 
+# creates a csv that has user reviews for each movie in movies_df
 def ratings_preprocessing(movies_df):
-
     ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
 
-    # merge the 2 df on common column: movieId (must first convert col to int). similar to SQL Join
     filtered_movies_df = movies_df.astype({"id": "int64"})
-    # left merge excludes ratings for movies not in the filtered_movies_df
-
-    # TODO: not sure if this is actually filtering out movies not in ratings_df
-    mask = filtered_movies_df["id"].apply(lambda x: x in ratings_df["movieId"])
+    # remove movies for which there were no reviews for
+    mask = filtered_movies_df["id"].apply(lambda x: x in ratings_df["movieId"].unique())
     filtered_movies_df = filtered_movies_df[mask]
 
+    # merge the 2 df on common column: movieId (must first convert col to int). similar to SQL Join
     df = pd.merge(
         filtered_movies_df[["id", "original_title"]],
         ratings_df,
@@ -165,7 +131,7 @@ def ratings_preprocessing(movies_df):
     df = df.pivot(index="userId", columns="original_title", values="rating").fillna(0)
     df = df.astype("int64")
 
-    df.drop(df.columns[df.apply(lambda col: np.sum(col) == 0)], axis=1, inplace=True)
+    # df.drop(df.columns[df.apply(lambda col: np.sum(col) == 0)], axis=1, inplace=True)
 
     pd.DataFrame(df).to_csv("Data_Files/ratings_filtered.csv")
 
@@ -198,6 +164,7 @@ movies_df.drop(
 # remove movies with blank titles
 title_mask = movies_df["title"].isna()
 movies_df = movies_df.loc[title_mask == False]
+# filters out movies that have less than 300 ratings and has an average score of less than 6.0
 movies_df = movies_df[movies_df["vote_count"] > 300]
 movies_df = movies_df[movies_df["vote_average"] >= 6.0]
 
