@@ -206,7 +206,7 @@ def apriori(df, min_support=0.1, max_k_itemsets=3):
     return freq_itemsets_df
 
 
-def create_association_rules(frequent_itemsets, metric="support", metric_threshold=0.0):
+def create_association_rules(frequent_itemsets, metric="support"):
     """
       Generates a DataFrame of association rules including the metrics 'support', 'confidence', and 'lift'.
 
@@ -218,15 +218,10 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
       metric : string (default: 'support')
         Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
 
-      metric_threshold : float (default: 0.0)
-        Minimal threshold for the evaluation metric given by the `metric` parameter,
-        to decide if a rule is of interest.
-
       Returns
       ----------
       pandas DataFrame with columns "antecedents" and "consequents",
-        and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift",
-        of all rules where, `metric` >= `metric_threshold`.
+        and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift".
         Each entry in the "antecedents" and "consequents" columns are
     of type `frozenset` (a Python built-in type), which is immutable.
     """
@@ -283,12 +278,10 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
                 sA = frequent_items_dict[antecedent]
                 sC = frequent_items_dict[consequent]
 
-                # check the parameter metric with the parameter threshold
-                metric_score = metric_dict[metric](sAC, sA, sC)
-                if metric_score >= metric_threshold:
-                    rule_antecedents.append(antecedent)
-                    rule_consequents.append(consequent)
-                    rule_supports.append([sAC, sA, sC])
+                # add to metric lists
+                rule_antecedents.append(antecedent)
+                rule_consequents.append(consequent)
+                rule_supports.append([sAC, sA, sC])
 
     # check if any supports were generated
     if rule_supports:
@@ -425,7 +418,6 @@ RATING_THRESHOLD = 3
 MIN_SUPPORT = 0.07
 MAX_K_ITEMSETS = 5
 METRIC = "lift"
-METRIC_THRESHOLD = 1
 
 # load data
 movies_df, ratings_df, ratings_filtered_df, df = load_data()
@@ -447,9 +439,7 @@ freq_itemsets = apriori(df, min_support=MIN_SUPPORT, max_k_itemsets=MAX_K_ITEMSE
 # high lift suggests there is some relation between the two movies and most of the
 # users who have watched movie M1 are also likely to watch movie M2.
 # rules are sorted by descending value of the given metric
-rules_df = create_association_rules(
-    freq_itemsets, metric=METRIC, metric_threshold=METRIC_THRESHOLD
-)
+rules_df = create_association_rules(freq_itemsets, metric=METRIC)
 
 # get recommended movies for the user inputted movie
 while True:

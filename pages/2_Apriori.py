@@ -49,9 +49,6 @@ rating_threshold = c1.slider(
 min_support = c1.slider("Minimum support value for apriori", 0.02, 1.0, 0.07, 0.01)
 max_k_itemsets = c1.slider("Maximum itemset size for apriori", 1, 5, 5)
 metric = c1.selectbox("Metric of interest for rule generation", METRICS, index=2)
-metric_threshold = c1.slider(
-    "Minimum metric (%s) value for rule generation" % metric, 0.0, 10.0, 0.0, 0.1
-)
 start_apriori = c1.button("GENERATE ASSOCIATION RULES")
 
 # MOVIE RECOMMENDER
@@ -77,9 +74,7 @@ if start_apriori:
 
     # generate association rules
     st.session_state.rules_df = apriori.create_association_rules(
-        frequent_itemsets=st.session_state.freq_itemsets,
-        metric=metric,
-        metric_threshold=metric_threshold,
+        frequent_itemsets=st.session_state.freq_itemsets, metric=metric
     )
     st.session_state.time_apriori_end = time.time()
 
@@ -129,9 +124,7 @@ if start_recommend:
             )
 
             # make copy to prevent streamlit "autofixes" (which converts frozenset to string)
-            c2.markdown(
-                "#### Association Rules containing `%s` as antecedent" % user_movie
-            )
+            c2.markdown("#### Association Rules, where antecedent is `%s`" % user_movie)
             c2.dataframe(format_rules_df(user_movie_rules_df))
         else:
             c2.info(
