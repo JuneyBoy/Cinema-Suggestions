@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import knn
 import time
+import numpy as np
 
 
 st.markdown(
@@ -29,8 +30,6 @@ def load_data():
 
 movie_info, genres, casts, keywords = load_data()
 
-
-# TODO: when I try to return this in load_data, I get an error saying there's only 4 items to unpack not 5
 ratings_info = pd.read_csv("Data_Files/ratings_filtered.csv")
 
 # get movie from user via dropdown menu that has all the movies from the preprocessed set
@@ -110,3 +109,9 @@ if st.button("FIND RECOMMENDATIONS"):
     )
 
     st.write("Time taken to get recommendations (seconds): ", time.time() - start_time)
+    st.write(
+        f"Mean of Avg Rating of Users Who Liked {user_movie} : ",
+        np.average(
+            most_similar_movies_df[f"Avg Rating of Users Who Liked {user_movie}"]
+        ),
+    )
