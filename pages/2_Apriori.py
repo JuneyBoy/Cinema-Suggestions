@@ -49,6 +49,9 @@ rating_threshold = c1.slider(
 min_support = c1.slider("Minimum support value for apriori", 0.02, 1.0, 0.07, 0.01)
 max_k_itemsets = c1.slider("Maximum itemset size for apriori", 1, 5, 5)
 metric = c1.selectbox("Metric of interest for rule generation", METRICS, index=2)
+s_min = c1.slider("Minimum support value for rule generation", 0.00, 1.0, 0.02, 0.01)
+c_min = c1.slider("Minimum confidence value for rule generation", 0.00, 1.0, 0.30, 0.01)
+l_min = c1.slider("Minimum lift value for rule generation", 0.0, 10.0, 1.0, 0.1)
 start_apriori = c1.button("GENERATE ASSOCIATION RULES")
 
 # MOVIE RECOMMENDER
@@ -74,7 +77,11 @@ if start_apriori:
 
     # generate association rules
     st.session_state.rules_df = apriori.create_association_rules(
-        frequent_itemsets=st.session_state.freq_itemsets, metric=metric
+        frequent_itemsets=st.session_state.freq_itemsets,
+        metric=metric,
+        s_min=s_min,
+        c_min=c_min,
+        l_min=l_min,
     )
     st.session_state.time_apriori_end = time.time()
 

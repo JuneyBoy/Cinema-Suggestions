@@ -206,23 +206,34 @@ def apriori(df, min_support=0.1, max_k_itemsets=3):
     return freq_itemsets_df
 
 
-def create_association_rules(frequent_itemsets, metric="support"):
+def create_association_rules(
+    frequent_itemsets, metric="support", s_min=0.0, c_min=0.0, l_min=1.0
+):
     """
-      Generates a DataFrame of association rules including the metrics 'support', 'confidence', and 'lift'.
+    Generates a DataFrame of association rules including the metrics 'support', 'confidence', and 'lift'.
 
-      Parameters
-      -----------
-      frequent_itemsets : pandas DataFrame
-        DF of frequent itemsets with columns ['support', 'itemsets']
+    Parameters
+    -----------
+    frequent_itemsets : pandas DataFrame
+    DF of frequent itemsets with columns ['support', 'itemsets']
 
-      metric : string (default: 'support')
-        Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
+    metric : string (default: 'support')
+    Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
 
-      Returns
-      ----------
-      pandas DataFrame with columns "antecedents" and "consequents",
-        and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift".
-        Each entry in the "antecedents" and "consequents" columns are
+    s_min: float (defaul: 0.0)
+      Minimum support value for rule.
+
+    c_min: float (defaul: 0.0)
+      Minimum confidence value for rule.
+
+    l_min: float (defaul: 1.0)
+      Minimum lift value for rule.
+
+    Returns
+    ----------
+    pandas DataFrame with columns "antecedents" and "consequents",
+    and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift".
+    Each entry in the "antecedents" and "consequents" columns are
     of type `frozenset` (a Python built-in type), which is immutable.
     """
     # validate the frequent_itemsets DF: contains columns "support" and "itemsets"
@@ -279,9 +290,13 @@ def create_association_rules(frequent_itemsets, metric="support"):
                 sC = frequent_items_dict[consequent]
 
                 # add to metric lists
-                rule_antecedents.append(antecedent)
-                rule_consequents.append(consequent)
-                rule_supports.append([sAC, sA, sC])
+                s = metric_dict["support"](sAC, sA, sC)
+                c = metric_dict["confidence"](sAC, sA, sC)
+                l = metric_dict["lift"](sAC, sA, sC)
+                if s >= s_min and c >= c_min and l >= l_min:
+                    rule_antecedents.append(antecedent)
+                    rule_consequents.append(consequent)
+                    rule_supports.append([sAC, sA, sC])
 
     # check if any supports were generated
     if rule_supports:
@@ -339,9 +354,7 @@ def recommend_movies_apriori(
       - the movies' average rating from users that also liked the inputted `movie_title`
     """
     # get dataframe with user inputted movie as the only item in antecedent (length of 1)
-    movie_mask = rules_df["antecedents"].apply(
-        lambda x: len(x) == 1 and movie_title in x
-    )
+    movie_mask = rules_df["antecedents"].apply(lambda x: movie_title in x)
     user_movie_rules_df = rules_df[movie_mask]
 
     # get all the movies (consequents) where the rule had user_movie (antecedent)
