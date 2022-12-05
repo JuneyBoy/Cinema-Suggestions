@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -21,7 +22,7 @@ def format_rules_df(rules_df):
     return rules_df
 
 
-movies_df, ratings_df, apriori_df = load_data()
+movies_df, ratings_df, ratings_filtered_df, apriori_df = load_data()
 
 st.markdown(
     (
@@ -56,6 +57,7 @@ start_apriori = c1.button("GENERATE ASSOCIATION RULES")
 # max number of recommended movies
 c2.markdown("#### Recommend Movies")
 user_movie = c2.selectbox("Movie:", [title for title in movies_df["original_title"]])
+max_movies = c2.slider("Maximum number of movie recommendations", 1, 10, 1)
 start_recommend = c2.button("FIND RECOMMENDATIONS")
 
 if start_apriori:
@@ -85,17 +87,26 @@ if "rules_df" in st.session_state and "freq_itemsets" in st.session_state:
 if start_recommend:
     if "rules_df" in st.session_state and "freq_itemsets" in st.session_state:
         # get movie recommendations
-        user_movie_rules_df, movies = apriori.recommend_movies_apriori(
+        user_movie_rules_df, recommended_movies_df = apriori.recommend_movies_apriori(
             movie_title=user_movie,
+            movies_df=movies_df,
+            ratings_filtered_df=ratings_filtered_df,
             rules_df=st.session_state.rules_df,
-            max_movies=10,
+            max_movies=max_movies,
         )
 
-        # show user
+        # show user the recommended movies
         c2.markdown("#### Recommended Movies (`%s`)" % user_movie)
-        if len(movies) > 0:
-            for movie in movies:
-                c2.markdown(" `%s`" % movie)
+        if not recommended_movies_df.empty:
+            c2.table(
+                recommended_movies_df.style.format(
+                    {
+                        "Avg Rating of All Users": "{:.2f}",
+                        f"Avg Rating of Users Who Liked {user_movie}": "{:.2f}",
+                    }
+                )
+            )
+
             # make copy to prevent streamlit "autofixes" (which converts frozenset to string)
             c2.markdown("#### Association Rules Containing `%s`" % user_movie)
             c2.dataframe(format_rules_df(user_movie_rules_df))
@@ -103,7 +114,8 @@ if start_recommend:
             c2.info(
                 "Sorry, no recommendations could be made from the association rules "
                 "with the movie `%s`...\n\r"
-                "Please try another movie." % user_movie
+                "Please try another movie (one that is in the antecedent of a rule)."
+                % user_movie
             )
 
     else:

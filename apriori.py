@@ -8,11 +8,12 @@ import seaborn as sns
 
 def load_data():
     # load the data
-    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
     movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
+    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
+    ratings_filtered_df = pd.read_csv("Data_Files/ratings_filtered.csv")
     df = pd.read_csv("Data_Files/ratings_filtered.csv", index_col="userId")
 
-    return (movies_df, ratings_df, df)
+    return (movies_df, ratings_df, ratings_filtered_df, df)
 
 
 def plot_ratings_distribution(ratings_df):
@@ -341,8 +342,10 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
 
 def recommend_movies_apriori(
     movie_title,
+    movies_df,
+    ratings_filtered_df,
     rules_df,
-    max_movies=7,
+    max_movies=10,
 ):
     # get dataframe with user inputted movie as the only item in antecedent (length of 1)
     movie_mask = rules_df["antecedents"].apply(
@@ -360,8 +363,56 @@ def recommend_movies_apriori(
             if title not in recommended_movies:
                 recommended_movies.append(title)
 
-    # output user movie df, and recommended movie list
-    return user_movie_rules_df, recommended_movies[0:max_movies]
+    avg_ratings = []
+    user_avg_ratings = []
+    recommended_movies = recommended_movies[0:max_movies]
+    for movie in recommended_movies:
+        # average rating from all users
+        avg_rating = np.average(
+            movies_df[movies_df["original_title"] == movie]["vote_average"]
+        )
+        avg_ratings.append(avg_rating)
+
+        # average rating from users who liked the recommended movie
+        user_avg_rating = avg_rating_of_rec_by_users_who_liked_chosen_movie(
+            ratings=ratings_filtered_df,
+            chosen_movie=movie_title,
+            recommendation=movie,
+        )
+        # skips recommendation if there are no user ratings for it
+        if np.isnan(user_avg_rating):
+            continue
+        else:
+            user_avg_ratings.append(user_avg_rating)
+
+    # create new DF to display recommendations
+    recommended_movies_df = pd.DataFrame(
+        {
+            "Movie Title": recommended_movies,
+            "Avg Rating of All Users": avg_ratings,
+            f"Avg Rating of Users Who Liked {movie_title}": user_avg_ratings,
+        }
+    )
+
+    # output user movie df, and recommended movie df
+    return user_movie_rules_df, recommended_movies_df
+
+
+def avg_rating_of_rec_by_users_who_liked_chosen_movie(
+    ratings, chosen_movie, recommendation
+):
+    # for users who liked the chosen movie, find the ratings the users gave to the recommendation
+    ratings_for_recommendation = [
+        # ratings in ratings_filtered.csv are out of 5 instead of 10
+        rec_rating * 2
+        for rec_rating, chosen_movie_rating in zip(
+            ratings[recommendation], ratings[chosen_movie]
+        )
+        # filters out users who did not like chosen movie and did not review the recommendation
+        if chosen_movie_rating > 2.5 and rec_rating > 0
+    ]
+
+    return np.average(ratings_for_recommendation)
 
 
 """
@@ -373,7 +424,7 @@ METRIC = "lift"
 METRIC_THRESHOLD = 1
 
 # load data
-movies_df, ratings_df, df = load_data()
+movies_df, ratings_df, ratings_filtered_df, df = load_data()
 
 # our apriori model needs data in a matrix with:
 # userId is index, columns are movie tiles, and the values
@@ -406,6 +457,8 @@ while True:
     else:
         user_movie_rules_df, recommended_movies = recommend_movies_apriori(
             movie_title=user_movie,
+            movies_df=movies_df,
+            ratings_filtered_df=ratings_filtered_df,
             rules_df=rules_df,
             max_movies=10,
         )
