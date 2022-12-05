@@ -42,10 +42,12 @@ c1, c2 = st.columns((1, 1))
 # metric: support, confidence, or lift
 # metric threshold: minimum value for metric for rules of interest
 METRICS = ["support", "confidence", "lift"]
-c1.markdown("#### Rule Generation")
-rating_threshold = c1.slider("Minimum `good` movie rating", 0.0, 5.0, 3.0, 0.1)
+c1.markdown("#### Rule Generation (Apriori)")
+rating_threshold = c1.slider(
+    "Minimum `good` movie rating for apriori", 0.0, 10.0, 6.0, 0.1
+)
 min_support = c1.slider("Minimum support value for apriori", 0.02, 1.0, 0.07, 0.01)
-max_len = c1.slider("Maximum size of an itemset for apriori", 1, 5, 5)
+max_k_itemsets = c1.slider("Maximum itemset size for apriori", 1, 5, 5)
 metric = c1.selectbox("Metric of interest for rule generation", METRICS, index=2)
 metric_threshold = c1.slider(
     "Minimum metric (%s) value for rule generation" % metric, 0.0, 10.0, 0.0, 0.1
@@ -62,13 +64,14 @@ start_recommend = c2.button("FIND RECOMMENDATIONS")
 
 if start_apriori:
     # encode the ratings in the df to True/False
+    # divide threshold by 2 because ratings in df are from 0-5, instead of 0-10
     apriori_df = apriori_df.applymap(
-        apriori.encode_ratings, None, rating_threshold=rating_threshold
+        apriori.encode_ratings, None, rating_threshold=rating_threshold / 2
     )
 
     # generate frequent itemsets
     st.session_state.freq_itemsets = apriori.apriori(
-        df=apriori_df, min_support=min_support, max_len=max_len
+        df=apriori_df, min_support=min_support, max_k_itemsets=max_k_itemsets
     )
 
     # generate association rules
