@@ -164,10 +164,10 @@ def apriori(df, min_support=0.1, max_k_itemsets=3):
             break
 
         # get new array of transaction data from the candidates
-        _bools = np.all(X[:, candidates], axis=2)
+        candidates_df = np.all(X[:, candidates], axis=2)
 
         # calculate supports for new combinations
-        supports = calculate_support(np.array(_bools), X.shape[0])
+        supports = calculate_support(np.array(candidates_df), X.shape[0])
 
         # CANDIDATE-PRUNING
         # populate supports and itemsets only if the supports are above threshold
@@ -182,16 +182,16 @@ def apriori(df, min_support=0.1, max_k_itemsets=3):
 
     # add each support and itemset to list
     # keep it in pandas form, so use Series
-    res_list = []
+    support_itemset_list = []
     for k in sorted(itemset_dict):
         supports = pd.Series(support_dict[k])
         itemsets = pd.Series([frozenset(i) for i in itemset_dict[k]], dtype="object")
         pair = pd.concat((supports, itemsets), axis=1)
-        res_list.append(pair)
+        support_itemset_list.append(pair)
 
     # add the list of support-itemset pairs to a dataframe
     # change column names to: "support" and "itemsets"
-    freq_itemsets_df = pd.concat(res_list)
+    freq_itemsets_df = pd.concat(support_itemset_list)
     freq_itemsets_df.columns = ["support", "itemsets"]
 
     # replace all column indexes with the corresponding column name
@@ -208,27 +208,27 @@ def apriori(df, min_support=0.1, max_k_itemsets=3):
 
 def create_association_rules(frequent_itemsets, metric="support", metric_threshold=0.0):
     """
-    Generates a DataFrame of association rules including the metrics 'support', 'confidence', and 'lift'.
+      Generates a DataFrame of association rules including the metrics 'support', 'confidence', and 'lift'.
 
-    Parameters
-    -----------
-    frequent_itemsets : pandas DataFrame
-      DF of frequent itemsets with columns ['support', 'itemsets']
+      Parameters
+      -----------
+      frequent_itemsets : pandas DataFrame
+        DF of frequent itemsets with columns ['support', 'itemsets']
 
-    metric : string (default: 'support')
-      Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
+      metric : string (default: 'support')
+        Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
 
-    metric_threshold : float (default: 0.0)
-      Minimal threshold for the evaluation metric given by the `metric` parameter,
-      to decide if a rule is of interest.
+      metric_threshold : float (default: 0.0)
+        Minimal threshold for the evaluation metric given by the `metric` parameter,
+        to decide if a rule is of interest.
 
-    Returns
-    ----------
-    pandas DataFrame with columns "antecedents" and "consequents",
-      and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift",
-      of all rules where, `metric` >= `metric_threshold`.
-      Each entry in the "antecedents" and "consequents" columns are
-      of type `frozenset` (a Python built-in type), which is immutable.
+      Returns
+      ----------
+      pandas DataFrame with columns "antecedents" and "consequents",
+        and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift",
+        of all rules where, `metric` >= `metric_threshold`.
+        Each entry in the "antecedents" and "consequents" columns are
+    of type `frozenset` (a Python built-in type), which is immutable.
     """
     # validate the frequent_itemsets DF: contains columns "support" and "itemsets"
     if not all(col in frequent_itemsets.columns for col in ["support", "itemsets"]):
@@ -361,9 +361,10 @@ def recommend_movies_apriori(
             if title not in recommended_movies:
                 recommended_movies.append(title)
 
+    # get only up to `max_movie` number of recommendations
+    recommended_movies = recommended_movies[0:max_movies]
     avg_ratings = []
     user_avg_ratings = []
-    recommended_movies = recommended_movies[0:max_movies]
     for movie in recommended_movies:
         # average rating from all users
         avg_rating = np.average(
