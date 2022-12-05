@@ -1,8 +1,5 @@
-import streamlit as st
-from sklearn.preprocessing import StandardScaler
 import pandas as pd
-import kmeans
-
+import streamlit as st
 
 st.markdown(
     "### Enter a movie and Cinema Suggestions will show you 10 of the most similar movies based on genres, cast, and keywords as well as a predicted rating of the movie using the K Means Algorithm"
@@ -12,97 +9,45 @@ st.markdown(
 @st.cache
 def load_data():
     # importing preprocessed data from csvs
-    filtered_movies_df = pd.read_csv("Data_Files/movies.csv", usecols = ['id', 'genres', 'original_title'])
-    filtered_ratings = pd.read_csv("Data_Files/ratings.csv", usecols = ['movieId','rating'])
-    return (
-        filtered_movies_df,
-        filtered_ratings
+    movies_filtered_df = pd.read_csv("Data_Files/movies_filtered.csv")
+    ratings_filtered_df = pd.read_csv(
+        "Data_Files/ratings_filtered.csv", index_col="userId"
     )
+    return (movies_filtered_df, ratings_filtered_df)
+
 
 movies, ratings = load_data()
 
-#Creating a merged dataset
-data = pd.merge(movies, ratings, left_on= ['id'], right_on= ['movieId'], how = 'left')
+# split page into columns
+c1, c2 = st.columns((1, 1))
 
-#Data Pre-Processing
-data.dropna(inplace= True )
-data.drop_duplicates(subset="id", keep="first")
-scaler = StandardScaler()
-data = scaler.fit_transform(data)
+# get list of movie titles in the dataframe
+movie_title_list = [title for title in movies["original_title"]]
 
-#Creating wcss plot for best K
-kmeans.wcss(data)
+# select box for 3 movies
+user_movie1 = c1.selectbox("Movie 1:", movie_title_list)
+user_movie2 = c1.selectbox("Movie 2:", movie_title_list)
+user_movie3 = c1.selectbox("Movie 3:", movie_title_list)
 
-# get movie from user via dropdown menu that has all the movies from the preprocessed set
-user_movie = st.selectbox(
-    "Select a movie:", [title for title in movies["original_title"]]
+# rating sliders for 3 movies
+user_rating1 = c2.slider(
+    "Your rating for movie 1 (`%s`):" % user_movie1, 0.0, 10.0, 5.0, 0.1, key="rating1"
 )
-'''
-k_neighbors = st.slider(
-    "How many recommendations do you want (will define K in KNN algorithm)",
-    min_value=1,
-    max_value=10,
-)'''
+user_rating2 = c2.slider(
+    "Your rating for movie 2 (`%s`):" % user_movie2, 0.0, 10.0, 5.0, 0.1, key="rating2"
+)
+user_rating3 = c2.slider(
+    "Your rating for movie 3 (`%s`):" % user_movie3, 0.0, 10.0, 5.0, 0.1, key="rating3"
+)
 
-if st.button("FIND RECOMMENDATIONS"):
-    # get the actual ratings and similarities for each movie
-    recommendations, ratings_of_recs_from_other_users = knn.getKNNMovies(
-        user_movie, movies, ratings, genres, casts, keywords, k_neighbors
-    )
-    # get predicted score using Weighted KNN regression
-    predicted_score_all_ratings = knn.weightedKNNPrediction(
-        [movie[1] for movie in recommendations], [movie[2] for movie in recommendations]
-    )
-    # get predicted score using Weighted KNN regression
-    predicted_score_users_who_liked_chosen_movie = knn.weightedKNNPrediction(
-        ratings_of_recs_from_other_users, [movie[2] for movie in recommendations]
-    )
+# button to start movie recommendation with KMeans
+start_kmeans = st.button("FIND RECOMMENDATIONS")
 
-    actual_score = movies.loc[
-        movies["original_title"] == user_movie, "vote_average"
-    ].iloc[0]
-
-    st.write("Actual Score: ", round(actual_score, 2))
-
-    st.write(
-        "Predicted Score (based on all user ratings): ",
-        round(predicted_score_all_ratings, 2),
-    )
-    st.write(
-        "Error (%): ",
-        round(
-            abs((actual_score - predicted_score_all_ratings) / actual_score) * 100, 2
-        ),
-    )
-
-    st.write(
-        f"Predicted Score (based on ratings of users who liked {user_movie}): ",
-        round(predicted_score_users_who_liked_chosen_movie, 2),
-    )
-
-    # convert results into dataframe (might change this so the function returns a dataframe so no conversion is necessary)
-    most_similar_movies_df = pd.DataFrame(
-        {
-            "Movie Title": [movie[0] for movie in recommendations],
-            "Avg Rating of All Users": [movie[1] for movie in recommendations],
-            f"Avg Rating of Users Who Liked {user_movie}": [
-                rating for rating in ratings_of_recs_from_other_users
-            ],
-            "Similarity": [movie[2] for movie in recommendations],
-        }
-    )
-    # by default index starts at 0 which would look a little funny to show the user the 0th movie
-    most_similar_movies_df.index += 1
-    st.markdown("##### 10 Most Similar Movies")
-    # need to add formatter to round ratings
-    st.table(
-        most_similar_movies_df.style.format(
-            {
-                "Avg Rating of All Users": "{:.2f}",
-                f"Avg Rating of Users Who Liked {user_movie}": "{:.2f}",
-            }
-        )
-    )
-    st.markdown(
-        "A similarity of 1 would mean the movie has the exact same characteristics as your chosen movie and a similarity of 0 would mean the movie has none of the same characteristics as your chosen movie."
-    )
+if start_kmeans:
+    # store input as dict, key: movie_title, value: rating
+    user_movie_rating_dict = {
+        user_movie1: user_rating1,
+        user_movie2: user_rating2,
+        user_movie3: user_rating3,
+    }
+    st.markdown(user_movie_rating_dict)

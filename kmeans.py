@@ -4,19 +4,23 @@ Reference: https://medium.com/nerd-for-tech/k-means-python-implementation-from-s
 Reference: https://asdkazmi.medium.com/ai-movies-recommendation-system-with-clustering-based-k-means-algorithm-f04467e02fcd
 '''
 
+import itertools
+import warnings
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn import preprocessing
-from sklearn.preprocessing import StandardScaler
 import seaborn as sns
-from scipy.sparse import csr_matrix
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.sparse import csr_matrix
+from sklearn import preprocessing
 from sklearn.cluster import KMeans
-from sklearn.metrics import mean_squared_error
-import itertools
-from sklearn.metrics import silhouette_samples, silhouette_score
-import warnings
+from sklearn.metrics import (mean_squared_error, silhouette_samples,
+                             silhouette_score)
+from sklearn.preprocessing import StandardScaler
+
+import knn
+
 warnings.filterwarnings('ignore')
 
 #Defining centroid of the data
@@ -92,7 +96,7 @@ def kmeans(X, k):
 
     diff = 1
     cluster = np.zeros(X.shape[0])
-    centroids = data.sample(n=k).values
+    centroids = X
     while diff:
         # for each observation
         for i, row in enumerate(X):
@@ -177,17 +181,17 @@ def wcss(X):
     plt.ylabel('WCSS')
     plt.show()
 
-
 def load_data():
     # importing preprocessed data from csvs
-    filtered_movies_df = pd.read_csv("Data_Files/movies.csv", usecols = ['id', 'genres', 'original_title'])
-    filtered_ratings = pd.read_csv("Data_Files/ratings.csv", usecols = ['userId','movieId','rating'])
+    filtered_movies_df = pd.read_csv("Data_Files/movies_filtered.csv", usecols = ['id', 'genres', 'original_title'])
+    filtered_ratings = pd.read_csv("Data_Files/ratings_filtered.csv")
     return (
         filtered_movies_df,
         filtered_ratings
     )
 
 #Data Pre-Processing
+'''
 def preprocess(data):
     #data = data.dropna()
     X = data.iloc[:,:-1].values
@@ -207,39 +211,55 @@ def preprocess(data):
                 data = scaler.fit_transform(X[:,i])
         except:
             continue
-    
+'''    
 movies, ratings = load_data()
-preprocess(movies)
-preprocess(ratings)
-#data = ratings.drop_duplicates(subset="movieId", keep="first")    
-ratings['movieId'] = ratings.movieId.astype(int)
-movies['id'] = movies.id.astype(int)
+# print(ratings.columns)
+# print(ratings)
+#sparse_ratings = csr_matrix(pd.SparseDataFrame(ratings).to_coo())
+sparse_ratings = csr_matrix(ratings.drop('userId', axis=1).values)
+predictions = KMeans(n_clusters=20, algorithm='full').fit(sparse_ratings)
+centers = predictions.cluster_centers_
+clusternum = predictions.labels_
 
-#Creating a merged dataset
-data = pd.merge(movies, ratings, left_on= ['id'], right_on= ['movieId'], how = 'left')
-data = data.dropna()
-data = data.reset_index(drop=True)
-data.drop(data.columns[[0,1,2,3,5,6]], axis=1, inplace=True)
-data.drop_duplicates(inplace=True)
-print(data.columns)
-#print(data)
-#data = data.drop(labels=0, axis=0)
-#data.columns = data.loc[0]
-#data = data.drop(0)
-print(data)
+ratings['cluster'] = clusternum
 
-rate_data = data.loc[:,['movieId', 'rating']]
-rate_data.columns = rate_data.loc[0]
-rate_data = rate_data.drop(0)
-#rate_data[]
-#rate_data.columns.values[0] = pd.to_numeric(rate_data.columns[0])
-#data.columns.values[1] = pd.to_numeric(data.columns[1])
-#data.columns.values[2] = pd.to_numeric(data.columns[2])
-#data.columns.values[3] = pd.to_numeric(data.columns[3])
-#print(type(data.columns[0]))
-#print(type(data.columns[1]))
-#print(type(data.columns[2]))
-#print(type(data.columns[3]))
+# print(centers)
+
+def get_cluster_for_user(movies):
+    similarity = {}
+    max_center = (-1,-1)
+    #Initialize array that is the same length
+    ratings_arr = [0] * len(ratings.columns)-1
+    for movie, rating in movies.items():
+        ratings_arr [ratings.columns.get_loc(movie)] = rating 
+    for center, label in zip(centers, clusternum):
+        sim = knn.getCosineSimilarity(ratings_arr, center)
+        similarity[label] = sim
+        curr_center = center
+        if curr_center > max_center[1]:
+            max_center = (label, curr_center) 
+    
+    return(max_center[0])
+    
+def get_top_movies_from_cluster(movie_ratings, num_of_movies_to_show=5):
+    # assign cluster to user
+    cluster_num = predictions.predict([movie_ratings])
+    # filter ratings to get the all the users in the same cluster as our user
+    users_in_cluster = ratings.loc[ratings['cluster'] == cluster_num]
+    # get their avgs for every movie
+    movie_avgs = {movie:np.average(ratings[movie]) for movie in ratings.columns[1:]}
+    # keep the movies with the top avgs
+    sorted_movie_avgs = dict(sorted(movie_avgs.items(), key=lambda item: item[1])[:num_of_movies_to_show])
+    # return list of tuple where the tuple is (movie_title, rating average from all users, rating average of users in same cluster)
+    return [(movie, movies.loc[movies["original_title"] == movie, 'vote_average'].iloc[0], avg) for movie, avg in sorted_movie_avgs.items()]
+
+
+movie_ratings = [0] * (len(ratings.columns)-1)
+movie_ratings[0] = 4.5
+movie_ratings[1] = 3.0
+movie_ratings[2] = 2.0
+
+print(get_top_movies_from_cluster(movie_ratings))
 
 #Creating wcss plot for best K
-wcss(rate_data.values)
+#wcss(ratings.values)
