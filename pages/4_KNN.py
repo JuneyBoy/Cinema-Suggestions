@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import knn
+import time
 
 
 st.markdown(
@@ -38,12 +39,14 @@ user_movie = st.selectbox(
 )
 
 k_neighbors = st.slider(
-    "How many recommendations do you want (will define K in KNN algorithm)",
+    "How many recommendations do you want (will define K in KNN algorithm):",
     min_value=1,
     max_value=10,
+    value=5,
 )
 
 if st.button("FIND RECOMMENDATIONS"):
+    start_time = time.time()
     # get the actual ratings and similarities for each movie
     recommendations, ratings_of_recs_from_other_users = knn.getKNNMovies(
         user_movie, movie_info, ratings_info, genres, casts, keywords, k_neighbors
@@ -92,7 +95,7 @@ if st.button("FIND RECOMMENDATIONS"):
     )
     # by default index starts at 0 which would look a little funny to show the user the 0th movie
     most_similar_movies_df.index += 1
-    st.markdown("##### 10 Most Similar Movies")
+    st.markdown(f"##### {k_neighbors} Most Similar Movies")
     # need to add formatter to round ratings
     st.table(
         most_similar_movies_df.style.format(
@@ -105,3 +108,5 @@ if st.button("FIND RECOMMENDATIONS"):
     st.markdown(
         "A similarity of 1 would mean the movie has the exact same characteristics as your chosen movie and a similarity of 0 would mean the movie has none of the same characteristics as your chosen movie."
     )
+
+    st.write("Time taken to get recommendations (seconds): ", time.time() - start_time)

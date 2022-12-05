@@ -13,7 +13,16 @@ def getCosineSimilarity(v1, v2):
 
 
 # find the KNN of user_movie using cosine similarity
-def getKNNMovies(user_movie, movies, ratings, genres, casts, keywords, k=10):
+def getKNNMovies(
+    user_movie,
+    movies,
+    ratings,
+    genres,
+    casts,
+    keywords,
+    k=5,
+    get_other_user_ratings=True,
+):
 
     # holds tuples in the following format -> (movie_title, movie_rating, similarity)
     similarities = [
@@ -38,28 +47,33 @@ def getKNNMovies(user_movie, movies, ratings, genres, casts, keywords, k=10):
         for movie, rating in zip(movies["original_title"], movies["vote_average"])
     ]
 
-    # gets the K movies that had the highest similarity scores (skips the first one because it will always be the user defined movie)
-    similarities = sorted(similarities, key=itemgetter(2), reverse=True)[1:]
+    if get_other_user_ratings:
+        # gets the K movies that had the highest similarity scores (skips the first one because it will always be the user defined movie)
+        similarities = sorted(similarities, key=itemgetter(2), reverse=True)[1:]
 
-    recs = []
-    user_avg_ratings = []
-    i = 0
+        recs = []
+        user_avg_ratings = []
+        i = 0
 
-    # only keeps movies that have at least one verified user review in ratings_filtered.csv
-    while len(recs) < k:
-        user_avg_rating = avg_rating_of_rec_by_users_who_liked_chosen_movie(
-            ratings, user_movie, similarities[i][0]
-        )
-        # skips recommendation if there are no user ratings for it
-        if np.isnan(user_avg_rating):
-            i += 1
-            continue
-        else:
-            recs.append(similarities[i])
-            user_avg_ratings.append(user_avg_rating)
-            i += 1
+        # only keeps movies that have at least one verified user review in ratings_filtered.csv
+        while len(recs) < k and i < len(similarities):
+            user_avg_rating = avg_rating_of_rec_by_users_who_liked_chosen_movie(
+                ratings, user_movie, similarities[i][0]
+            )
+            # skips recommendation if there are no user ratings for it
+            if np.isnan(user_avg_rating):
+                i += 1
+                continue
+            else:
+                recs.append(similarities[i])
+                user_avg_ratings.append(user_avg_rating)
+                i += 1
 
-    return recs, user_avg_ratings
+        return recs, user_avg_ratings
+    else:
+        # gets the K movies that had the highest similarity scores (skips the first one because it will always be the user defined movie)
+        similarities = sorted(similarities, key=itemgetter(2), reverse=True)[1 : k + 1]
+        return similarities
 
 
 # uses weighted KNN algorithm to predict the score of the movie
@@ -76,8 +90,16 @@ def weightedKNNPrediction(scores, similarities):
 def getRMSE(movies, ratings, genres, casts, keywords):
     # gets the KNN for every movie in movies
     all_movie_nearest_neighbors = [
-        getKNNMovies(movie, ratings, movies, genres, casts, keywords)
-        for movie in zip(movies["original_title"])
+        getKNNMovies(
+            movie,
+            movies,
+            ratings,
+            genres,
+            casts,
+            keywords,
+            get_other_user_ratings=False,
+        )
+        for movie in movies["original_title"]
     ]
     # gets the predicted scores for every movie in movies
     predicted_scores = np.array(
@@ -112,15 +134,14 @@ def avg_rating_of_rec_by_users_who_liked_chosen_movie(
     return np.average(ratings_for_recommendation)
 
 
-# user_movie = input("Enter a movie: ")
-# similarities = getKNNMovies(user_movie)
+filtered_movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
+filtered_ratings_df = pd.read_csv("Data_Files/ratings_filtered.csv")
+genre_bins = pd.read_csv("Data_Files/genre_binaries.csv")
+cast_bins = pd.read_csv("Data_Files/cast_binaries.csv")
+keyword_bins = pd.read_csv("Data_Files/keyword_binaries.csv")
 
-# predicted_score = weightedKNNPrediction(
-#     [similarity[1] for similarity in similarities],
-#     [similarity[2] for similarity in similarities],
-# )
-
-# print(f"Predicted Score: {predicted_score}")
-# print("Top 10 Most Similar Movies Predicted Score was Based On")
-# for similarity in similarities:
-#     print(f"{similarity[0]} {similarity[1]}")
+print(
+    getRMSE(
+        filtered_movies_df, filtered_ratings_df, genre_bins, cast_bins, keyword_bins
+    )
+)
