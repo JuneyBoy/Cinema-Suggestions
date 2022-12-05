@@ -6,7 +6,7 @@ Reference: https://asdkazmi.medium.com/ai-movies-recommendation-system-with-clus
 
 import itertools
 import warnings
-
+warnings.filterwarnings('ignore')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -18,88 +18,17 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import (mean_squared_error, silhouette_samples,
                              silhouette_score)
 from sklearn.preprocessing import StandardScaler
-
 import knn
 
-warnings.filterwarnings('ignore')
 
-#Defining centroid of the data
-'''
-def initialize_centroids(k, data):
-
-    n_dims = data.shape[1]
-    centroid_min = data.min().min()
-    centroid_max = data.max().max()
-    centroids = []
-
-    for centroid in range(k):
-        centroid = np.random.uniform(centroid_min, centroid_max, n_dims)
-        centroids.append(centroid)
-
-    centroids = pd.DataFrame(centroids, columns = data.columns)
-
-    return centroids
-'''
-def calculate_error(a,b):
-    '''
-    Given two Numpy Arrays, calculates the root of the sum of squared errores.
-    '''
-    error = np.square(np.sum((a-b)**2))
-
-    return error    
-
-def wcss(X):
-    cost_list = []
-    for k in range(1, 10):
-        centroids, cluster = kmeans(X, k)
-        # WCSS (Within cluster sum of square)
-        cost = calculate_cost(X, centroids, cluster)
-        cost_list.append(cost)
-
-    #Plot line between WSSC and k
-    #You will know what k should be based on where it reduces less
-    sns.lineplot(x=range(1,10), y=cost_list, marker='o')
-    plt.xlabel('k')
-    plt.ylabel('WCSS')
-    plt.show()
-    
-'''
-def sum_of_squared_errors():
-    errors = np.array([])
-    for centroid in range(centroids.shape[0]):
-        error = calculate_error(centroids.iloc[centroid, :2], data.iloc[0,:2])
-        errors = np.append(errors, error)
-'''
-def assign_centroid(data, centroids):
-    '''
-    Receives a dataframe of data and centroids and returns a list assigning each observation a centroid.
-    data: a dataframe with all data that will be used.
-    centroids: a dataframe with the centroids. For assignment the index will be used.
-    '''
-
-    n_observations = data.shape[0]
-    centroid_assign = []
-    centroid_errors = []
-    k = centroids.shape[0]
-
-
-    for observation in range(n_observations):
-
-        # Calculate the errror
-        errors = np.array([])
-        for centroid in range(k):
-            error = calculate_error(centroids.iloc[centroid, :2], data.iloc[observation,:2])
-            errors = np.append(errors, error)
-
-        # Calculate closest centroid & error 
-        closest_centroid =  np.where(errors == np.amin(errors))[0].tolist()[0]
-        centroid_error = np.amin(errors)
-
-        # Assign values to lists
-        centroid_assign.append(closest_centroid)
-        centroid_errors.append(centroid_error)
-
-    return (centroid_assign,centroid_errors)
+def generate_clusters_for_ratings():
+    filtered_ratings = pd.read_csv("Data_Files/ratings_filtered.csv")
+    sparse_ratings = csr_matrix(filtered_ratings.drop('userId', axis=1).values)
+    kmeans_obj = kmeans(sparse_ratings, 4)
+    filtered_ratings['cluster'] = kmeans_obj.cluster
+    filtered_ratings.to_csv("Data_Files/clustered_ratings.csv")
+    #Creating wcss plot for best K
+    wcss(filtered_ratings.values)
 
 #Where k = 4 based on wcss plot done on dataset
 #and X = data.values
@@ -182,22 +111,6 @@ def calculate_cost(X, centroids, cluster):
     sum += np.sqrt((centroids[int(cluster[i]), 0]-val[0])**2 +(centroids[int(cluster[i]), 1]-val[1])**2)
   return sum
 
-def generate_clusters_for_ratings():
-    filtered_ratings = pd.read_csv("Data_Files/ratings_filtered.csv")
-    sparse_ratings = csr_matrix(filtered_ratings.drop('userId', axis=1).values)
-    kmeans_obj = kmeans(sparse_ratings, 4)
-    filtered_ratings['cluster'] = kmeans_obj.cluster
-    filtered_ratings.to_csv("Data_Files/clustered_ratings.csv")
-
-def load_data():
-    # importing preprocessed data from csvs
-    filtered_movies_df = pd.read_csv("Data_Files/movies_filtered.csv", usecols = ['id', 'genres', 'original_title', 'vote_average'])
-    filtered_ratings = pd.read_csv("Data_Files/ratings_filtered.csv")
-    return (
-        filtered_movies_df,
-        filtered_ratings
-    )
-
 def get_cluster_for_user(movies):
     similarity = {}
     max_center = (-1,-1)
@@ -213,7 +126,8 @@ def get_cluster_for_user(movies):
             max_center = (label, curr_center) 
     
     return(max_center[0])
-    
+
+# *********** TODO: Has some K MEANS package ideologies    ********************
 def get_top_movies_from_cluster(kmeans, all_movies, all_ratings, movie_ratings, num_of_movies_to_show=5):
     # assign cluster to user
     cluster_num = kmeans.predict([movie_ratings])
@@ -233,31 +147,89 @@ def get_top_movies_from_cluster(kmeans, all_movies, all_ratings, movie_ratings, 
     # return list of tuple where the tuple is (movie_title, rating average from all users, rating average of users in same cluster)
     return [(movie[0], all_movies[all_movies['original_title']==movie[0]]['vote_average'].iloc[0], movie[1] * 2) for movie in sorted_movie_avgs]
 
-# movies, ratings = load_data()
-# movie_ratings = [0] * (len(ratings.columns)-1)
-# movie_ratings[0] = 4.5
-# movie_ratings[1] = 3.0
-# movie_ratings[2] = 2.0
+def calculate_error(a,b):
+    '''
+    Given two Numpy Arrays, calculates the root of the sum of squared errores.
+    '''
+    error = np.square(np.sum((a-b)**2))
 
-# print(get_top_movies_from_cluster(movies, ratings, movie_ratings))
+    return error    
 
-'''
+def wcss(X):
+    cost_list = []
+    for k in range(1, 10):
+        centroids, cluster = kmeans(X, k)
+        # WCSS (Within cluster sum of square)
+        cost = calculate_cost(X, centroids, cluster)
+        cost_list.append(cost)
 
-movies, ratings = load_data()
-def WCSS(X):
-    wcss=[]
-    for i in range(1,11): 
-        kmeans = KMeans(n_clusters=i, init ='k-means++', max_iter=300,  n_init=10,random_state=0 )
-        kmeans.fit(ratings)
-        wcss.append(kmeans.inertia_)
-        
-    plt.plot(range(1,11),wcss)
-    plt.title('The Elbow Method Graph')
-    plt.xlabel('Number of clusters')
+    #Plot line between WSSC and k
+    #You will know what k should be based on where it reduces less
+    sns.lineplot(x=range(1,10), y=cost_list, marker='o')
+    plt.xlabel('k')
     plt.ylabel('WCSS')
     plt.show()
 
-WCSS(ratings)
+ ################################################# STUFF THAT MAY OR MAY NOT BE NEEDED ###############################################   
+
+#Defining centroid of the data
+# MAY OR MAY NOT BE NEEDED HERE FOR POSSIBILITY
 '''
-#Creating wcss plot for best K
-#wcss(ratings.values)
+def initialize_centroids(k, data):
+
+    n_dims = data.shape[1]
+    centroid_min = data.min().min()
+    centroid_max = data.max().max()
+    centroids = []
+
+    for centroid in range(k):
+        centroid = np.random.uniform(centroid_min, centroid_max, n_dims)
+        centroids.append(centroid)
+
+    centroids = pd.DataFrame(centroids, columns = data.columns)
+
+    return centroids
+'''
+
+# MAY OR MAY NOT BE NEEDED HERE FOR POSSIBILITY    
+'''
+def sum_of_squared_errors():
+    errors = np.array([])
+    for centroid in range(centroids.shape[0]):
+        error = calculate_error(centroids.iloc[centroid, :2], data.iloc[0,:2])
+        errors = np.append(errors, error)
+'''
+
+# MAY OR MAY NOT BE NEEDED HERE FOR POSSIBILITY
+def assign_centroid(data, centroids):
+    '''
+    Receives a dataframe of data and centroids and returns a list assigning each observation a centroid.
+    data: a dataframe with all data that will be used.
+    centroids: a dataframe with the centroids. For assignment the index will be used.
+    '''
+
+    n_observations = data.shape[0]
+    centroid_assign = []
+    centroid_errors = []
+    k = centroids.shape[0]
+
+
+    for observation in range(n_observations):
+
+        # Calculate the errror
+        errors = np.array([])
+        for centroid in range(k):
+            error = calculate_error(centroids.iloc[centroid, :2], data.iloc[observation,:2])
+            errors = np.append(errors, error)
+
+        # Calculate closest centroid & error 
+        closest_centroid =  np.where(errors == np.amin(errors))[0].tolist()[0]
+        centroid_error = np.amin(errors)
+
+        # Assign values to lists
+        centroid_assign.append(closest_centroid)
+        centroid_errors.append(centroid_error)
+
+    return (centroid_assign,centroid_errors)
+
+
