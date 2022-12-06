@@ -1,32 +1,16 @@
 from itertools import combinations
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 
 def load_data():
-    # load the data
-    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
+    # load the data from the csv files
     movies_df = pd.read_csv("Data_Files/movies_filtered.csv")
+    ratings_df = pd.read_csv("Data_Files/ratings_small.csv")
+    ratings_filtered_df = pd.read_csv("Data_Files/ratings_filtered.csv")
     df = pd.read_csv("Data_Files/ratings_filtered.csv", index_col="userId")
-
-    return (movies_df, ratings_df, df)
-
-
-def plot_ratings_distribution(ratings_df):
-    plt.figure(figsize=(10, 5))
-    ax = sns.countplot(data=ratings_df, x="rating")
-    labels = ratings_df["rating"].value_counts().sort_index()
-    plt.title("Distribution of Ratings")
-    plt.xlabel("Ratings")
-
-    for i, v in enumerate(labels):
-        ax.text(
-            i, v + 100, str(v), horizontalalignment="center", size=14, color="black"
-        )
-    plt.show()
+    return (movies_df, ratings_df, ratings_filtered_df, df)
 
 
 def encode_ratings(df, rating_threshold=3):
@@ -62,8 +46,8 @@ def combinations_generator(old_combinations):
     Parameters
     -----------
     old_combinations: np.array
-      All combinations (represented by a matrix) that have high enough support in the previous step.
-      Number of columns is equal to the combination size of the previous step.
+      All combinations (represented by a matrix) with high enough support in the previous step.
+      # of columns == combination size of previous step.
       Each row represents one combination and contains item indexes in ascending order.
 
     Returns
@@ -89,7 +73,7 @@ def combinations_generator(old_combinations):
             yield item
 
 
-def apriori(df, min_support=0.1, max_len=None):
+def apriori(df, min_support=0.1, max_k_itemsets=3):
     """
     Get frequent itemsets from a DataFrame with
       - id for each transaction id
@@ -100,25 +84,18 @@ def apriori(df, min_support=0.1, max_len=None):
     -----------
     df : pandas DataFrame
       DataFrame with id field and columns with values as True/False.
-      For example,
-    ```
-        id    A       B         C       D
-        0     True    False     True    False
-        1     True    True      True    False
-        2     True    False     True    False
-    ```
 
     min_support : float (default: 0.1)
       Minimum support threshold of the itemsets returned.
       `support = # of transactions with item(s) / total # of transactions`.
 
-    max_len : int (default: None)
-      Maximum length of the itemsets generated. If `None` (default), any itemset lengths are evaluated.
+    max_k_itemsets : int (default: 3)
+      Maximum size of the itemsets generated.
 
     Returns
     -----------
     pandas DataFrame with columns ['support', 'itemsets'] of all itemsets
-      that have support >= `min_support` and itemset length < `max_len`.
+      that have support >= `min_support` and itemset length < `max_k_itemsets`.
       Each itemset is of type `frozenset` (a Python built-in type), which is immutable.
     """
 
@@ -145,14 +122,13 @@ def apriori(df, min_support=0.1, max_len=None):
     # check that min_support is valid
     if min_support < 0.0 or min_support >= 1.0:
         raise ValueError(
-            "`min_support` must be a number within the interval `(0, 1]`. Got %s."
-            % min_support
+            "`min_support` must be within the interval `(0, 1]`. Got %s." % min_support
         )
 
-    # check that max_len is valid
-    if max_len != None and max_len < 0:
+    # check that max_k_itemsets is valid
+    if max_k_itemsets < 0:
         raise ValueError(
-            "`max_len` must be `None` or an integer greater than 0`. Got %s." % max_len
+            "`max_k_itemsets` must be greater than 0`. Got %s." % max_k_itemsets
         )
 
     # start apriori with the singular values (1-itemsets)
@@ -173,7 +149,7 @@ def apriori(df, min_support=0.1, max_len=None):
 
     # continue apriori after 1-itemsets
     k = 1
-    while k < (max_len or float("inf")):
+    while k < max_k_itemsets:
         k_next = k + 1
 
         # CANDIDATE-GENERATION
@@ -188,13 +164,13 @@ def apriori(df, min_support=0.1, max_len=None):
             break
 
         # get new array of transaction data from the candidates
-        _bools = np.all(X[:, candidates], axis=2)
+        candidates_df = np.all(X[:, candidates], axis=2)
 
         # calculate supports for new combinations
-        supports = calculate_support(np.array(_bools), X.shape[0])
+        supports = calculate_support(np.array(candidates_df), X.shape[0])
 
         # CANDIDATE-PRUNING
-        # populate supports and itemsets if any of the supports are above threshold
+        # populate supports and itemsets only if the supports are above threshold
         support_mask = supports >= min_support
         if any(support_mask):
             itemset_dict[k_next] = np.array(candidates[support_mask])
@@ -206,16 +182,16 @@ def apriori(df, min_support=0.1, max_len=None):
 
     # add each support and itemset to list
     # keep it in pandas form, so use Series
-    res_list = []
+    support_itemset_list = []
     for k in sorted(itemset_dict):
         supports = pd.Series(support_dict[k])
         itemsets = pd.Series([frozenset(i) for i in itemset_dict[k]], dtype="object")
         pair = pd.concat((supports, itemsets), axis=1)
-        res_list.append(pair)
+        support_itemset_list.append(pair)
 
     # add the list of support-itemset pairs to a dataframe
     # change column names to: "support" and "itemsets"
-    freq_itemsets_df = pd.concat(res_list)
+    freq_itemsets_df = pd.concat(support_itemset_list)
     freq_itemsets_df.columns = ["support", "itemsets"]
 
     # replace all column indexes with the corresponding column name
@@ -230,32 +206,35 @@ def apriori(df, min_support=0.1, max_len=None):
     return freq_itemsets_df
 
 
-def create_association_rules(frequent_itemsets, metric="support", metric_threshold=0.0):
+def create_association_rules(
+    frequent_itemsets, metric="support", s_min=0.0, c_min=0.0, l_min=1.0
+):
     """
     Generates a DataFrame of association rules including the metrics 'support', 'confidence', and 'lift'.
 
     Parameters
     -----------
     frequent_itemsets : pandas DataFrame
-      DF of frequent itemsets with columns ['support', 'itemsets']
+    DF of frequent itemsets with columns ['support', 'itemsets']
 
     metric : string (default: 'support')
-      Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
-      - support(A->C) = support(A+C), range: [0, 1]
-      - confidence(A->C) = support(A->C) / support(A), range: [0, 1]
-      - lift(A->C) = confidence(A->C) / support(C), range: [0, inf]
+    Metric to evaluate if a rule is of interest: 'support', 'confidence', 'lift'.
 
-    metric_threshold : float (default: 0.0)
-      Minimal threshold for the evaluation metric given by the `metric` parameter,
-      to decide if a rule is of interest.
+    s_min: float (defaul: 0.0)
+      Minimum support value for rule.
+
+    c_min: float (defaul: 0.0)
+      Minimum confidence value for rule.
+
+    l_min: float (defaul: 1.0)
+      Minimum lift value for rule.
 
     Returns
     ----------
     pandas DataFrame with columns "antecedents" and "consequents",
-      and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift",
-      of all rules where, `metric` >= `metric_threshold`.
-      Each entry in the "antecedents" and "consequents" columns are
-      of type `frozenset` (a Python built-in type), which is immutable.
+    and metric columns: "antecedent support", "consequent support", "support", "confidence", "lift".
+    Each entry in the "antecedents" and "consequents" columns are
+    of type `frozenset` (a Python built-in type), which is immutable.
     """
     # validate the frequent_itemsets DF: contains columns "support" and "itemsets"
     if not all(col in frequent_itemsets.columns for col in ["support", "itemsets"]):
@@ -267,6 +246,9 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
     # sAC: total support
     # sA: antecedent support
     # sC: consequent support
+    # support(A->C) = support(A+C), range: [0, 1]
+    # confidence(A->C) = support(A->C) / support(A), range: [0, 1]
+    # lift(A->C) = confidence(A->C) / support(C), range: [0, inf]
     metric_dict = {
         "antecedent support": lambda sAC, sA, sC: sA,
         "consequent support": lambda sAC, sA, sC: sC,
@@ -307,9 +289,11 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
                 sA = frequent_items_dict[antecedent]
                 sC = frequent_items_dict[consequent]
 
-                # check the parameter metric with the parameter threshold
-                metric_score = metric_dict[metric](sAC, sA, sC)
-                if metric_score >= metric_threshold:
+                # add to metric lists
+                s = metric_dict["support"](sAC, sA, sC)
+                c = metric_dict["confidence"](sAC, sA, sC)
+                l = metric_dict["lift"](sAC, sA, sC)
+                if s >= s_min and c >= c_min and l >= l_min:
                     rule_antecedents.append(antecedent)
                     rule_consequents.append(consequent)
                     rule_supports.append([sAC, sA, sC])
@@ -341,13 +325,36 @@ def create_association_rules(frequent_itemsets, metric="support", metric_thresho
 
 def recommend_movies_apriori(
     movie_title,
+    movies_df,
+    ratings_filtered_df,
     rules_df,
-    max_movies=7,
+    max_movies=10,
 ):
+    """
+    Recommends movies given a movie title.
+
+    Parameters
+    -----------
+    movie_title : string
+      The title of the movie to find recommendations for.
+    movies_df : pandas DataFrame
+      DF containing movie data. from "movies_filtered.csv"
+    ratings_filtered_df : pandas DataFrame
+      DF containing pre-processed ratings data from certain movies. from ""ratings_filtered.csv"
+    rules_df : pandas DataFrame
+      DF containing the association rules.
+    max_movies : int (default: 10)
+      The maximum number of recommended movies to get.
+
+    Returns
+    -----------
+    pandas DataFrame with at most `max_movies` recommendations, containing:
+      - the movies' titles
+      - the movies' average rating from all users
+      - the movies' average rating from users that also liked the inputted `movie_title`
+    """
     # get dataframe with user inputted movie as the only item in antecedent (length of 1)
-    movie_mask = rules_df["antecedents"].apply(
-        lambda x: len(x) == 1 and movie_title in x
-    )
+    movie_mask = rules_df["antecedents"].apply(lambda x: movie_title in x)
     user_movie_rules_df = rules_df[movie_mask]
 
     # get all the movies (consequents) where the rule had user_movie (antecedent)
@@ -360,20 +367,73 @@ def recommend_movies_apriori(
             if title not in recommended_movies:
                 recommended_movies.append(title)
 
-    # output user movie df, and recommended movie list
-    return user_movie_rules_df, recommended_movies[0:max_movies]
+    # get only up to `max_movie` number of recommendations
+    recommended_movies = recommended_movies[0:max_movies]
+    avg_ratings = []
+    user_avg_ratings = []
+    for movie in recommended_movies:
+        # average rating from all users
+        avg_rating = np.average(
+            movies_df[movies_df["original_title"] == movie]["vote_average"]
+        )
+        avg_ratings.append(avg_rating)
+
+        # average rating from users who liked the recommended movie
+        user_avg_rating = avg_rating_of_rec_by_users_who_liked_chosen_movie(
+            ratings=ratings_filtered_df,
+            chosen_movie=movie_title,
+            recommendation=movie,
+        )
+        # skips recommendation if there are no user ratings for it
+        if np.isnan(user_avg_rating):
+            continue
+        else:
+            user_avg_ratings.append(user_avg_rating)
+
+    # create new DF to display recommendations
+    recommended_movies_df = pd.DataFrame(
+        {
+            "Movie Title": recommended_movies,
+            "Avg Rating of All Users": avg_ratings,
+            f"Avg Rating of Users Who Liked {movie_title}": user_avg_ratings,
+        }
+    )
+
+    # output user movie df, and recommended movie df
+    return user_movie_rules_df, recommended_movies_df
+
+
+def avg_rating_of_rec_by_users_who_liked_chosen_movie(
+    ratings, chosen_movie, recommendation
+):
+    """
+    Get the ratings of a `recommendation` movie from users that liked the `chosen_movie`.
+    `ratings` must be the DataFrame containing user ratings for each movie
+    (userId as id, movie_title as columns, rating as values).
+    """
+    # for users who liked the chosen movie, find the ratings the users gave to the recommendation
+    ratings_for_recommendation = [
+        # ratings in ratings_filtered.csv are out of 5 instead of 10
+        rec_rating * 2
+        for rec_rating, chosen_movie_rating in zip(
+            ratings[recommendation], ratings[chosen_movie]
+        )
+        # filters out users who did not like chosen movie and did not review the recommendation
+        if chosen_movie_rating > 2.5 and rec_rating > 0
+    ]
+
+    return np.average(ratings_for_recommendation)
 
 
 """
 # constants for algorithms
 RATING_THRESHOLD = 3
 MIN_SUPPORT = 0.07
-MAX_LEN = 5
+MAX_K_ITEMSETS = 5
 METRIC = "lift"
-METRIC_THRESHOLD = 1
 
 # load data
-movies_df, ratings_df, df = load_data()
+movies_df, ratings_df, ratings_filtered_df, df = load_data()
 
 # our apriori model needs data in a matrix with:
 # userId is index, columns are movie tiles, and the values
@@ -381,7 +441,7 @@ movies_df, ratings_df, df = load_data()
 df = df.applymap(encode_ratings, None, rating_threshold=RATING_THRESHOLD)
 
 # generate the frequent itemsets using the apriori algorithm
-freq_itemsets = apriori(df, min_support=MIN_SUPPORT, max_len=MAX_LEN)
+freq_itemsets = apriori(df, min_support=MIN_SUPPORT, max_k_itemsets=MAX_K_ITEMSETS)
 
 # support: probabilty of users watching movie M1
 # support(M) = (# user watchlists containing M) / (# user watchlists)
@@ -392,9 +452,7 @@ freq_itemsets = apriori(df, min_support=MIN_SUPPORT, max_len=MAX_LEN)
 # high lift suggests there is some relation between the two movies and most of the
 # users who have watched movie M1 are also likely to watch movie M2.
 # rules are sorted by descending value of the given metric
-rules_df = create_association_rules(
-    freq_itemsets, metric=METRIC, metric_threshold=METRIC_THRESHOLD
-)
+rules_df = create_association_rules(freq_itemsets, metric=METRIC)
 
 # get recommended movies for the user inputted movie
 while True:
@@ -406,6 +464,8 @@ while True:
     else:
         user_movie_rules_df, recommended_movies = recommend_movies_apriori(
             movie_title=user_movie,
+            movies_df=movies_df,
+            ratings_filtered_df=ratings_filtered_df,
             rules_df=rules_df,
             max_movies=10,
         )
