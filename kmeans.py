@@ -9,8 +9,7 @@ import matplotlib.pyplot as plt
 
 def init_centroids(k, ratings):
     # each dimension of the centroid will be a movie
-    # subtract 1 since the first column is user IDs
-    num_of_dimensions = len(ratings.columns) - 1
+    num_of_dimensions = len(ratings.columns)
 
     # intialize centroids randomly
     centroids = [
@@ -19,7 +18,7 @@ def init_centroids(k, ratings):
         for _ in range(k)
     ]
 
-    centroid_df = pd.DataFrame(centroids, columns=ratings.columns[1:])
+    centroid_df = pd.DataFrame(centroids, columns=ratings.columns)
 
     centroid_df.index.names = ["Cluster_Label"]
 
@@ -54,7 +53,7 @@ def get_cluster_for_user(movie_ratings, centroids):
         # if the error from the current cluster is smaller than the previous smallest error, reassign it
         if error < closest_centroid[1]:
             closest_centroid = (index, error)
-    # return cluster label and
+    # return cluster label and error
     return closest_centroid[0], error
 
 
@@ -72,10 +71,14 @@ def k_means(k, ratings):
         # if the current SSE is less than the previous iteration, then break
         if current_sse > previous_sse:
             ratings["cluster"] = labels
-            ratings.to_csv("Data_Files/ratings_clustered.csv", index=False)
+            ratings.to_csv("Data_Files/ratings_clustered.csv")
             centroids.to_csv("Data_Files/centroids.csv")
             return previous_sse
         num_of_iterations += 1
+
+    ratings["cluster"] = labels
+    ratings.to_csv("Data_Files/ratings_clustered.csv")
+    centroids.to_csv("Data_Files/centroids.csv")
 
     return current_sse
 
@@ -119,7 +122,10 @@ def get_top_movies_from_cluster(
     )
 
 
-# k_means(4, pd.read_csv("Data_Files/ratings_filtered.csv"))
+ratings_df = pd.read_csv("Data_Files/ratings_filtered.csv")
+ratings_df.set_index(["userId"], inplace=True)
+
+k_means(3, ratings_df)
 
 # call kmeans 20 times, and plot the SSE for each run to find optimal value of k
 def generate_elbow_plot(ks_to_test=10):
