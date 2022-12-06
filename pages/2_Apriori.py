@@ -1,5 +1,6 @@
 import time
 
+import numpy as np
 import streamlit as st
 
 import apriori
@@ -127,6 +128,17 @@ if start_recommend:
                         "Avg Rating of All Users": "{:.2f}",
                         f"Avg Rating of Users Who Liked {user_movie}": "{:.2f}",
                     }
+                )
+            )
+            c2.markdown(
+                "Average rating of recommendations from users who liked `%s`: `%.2f`"
+                % (
+                    user_movie,
+                    np.mean(
+                        recommended_movies_df[
+                            f"Avg Rating of Users Who Liked {user_movie}"
+                        ]
+                    ),
                 )
             )
 
