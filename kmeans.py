@@ -84,7 +84,7 @@ def k_means(k, ratings):
 
 
 def get_top_movies_from_cluster(
-    user_ratings, all_movies, all_ratings, centroids, num_of_movies_to_show=5
+    user_ratings, all_movies, all_ratings, centroids, num_of_movies_to_show=10
 ):
     # assign cluster to user
     cluster_num, error = get_cluster_for_user(user_ratings, centroids[1:])
@@ -125,7 +125,7 @@ def get_top_movies_from_cluster(
 ratings_df = pd.read_csv("Data_Files/ratings_filtered.csv")
 ratings_df.set_index(["userId"], inplace=True)
 
-k_means(3, ratings_df)
+#k_means(3, ratings_df)
 
 # call kmeans 20 times, and plot the SSE for each run to find optimal value of k
 def generate_elbow_plot(ks_to_test=10):
@@ -140,5 +140,4 @@ def generate_elbow_plot(ks_to_test=10):
     plt.ylabel("SSE")
     plt.show()
 
-k_means(4, pd.read_csv("Data_Files/ratings_filtered.csv"))
 # generate_elbow_plot()
