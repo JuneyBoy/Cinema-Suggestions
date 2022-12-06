@@ -1,11 +1,10 @@
 import pandas as pd
 import streamlit as st
-from scipy.sparse import csr_matrix
-from sklearn.cluster import KMeans
 import time
-start_time = time.time()
-
 import kmeans
+import numpy as np
+
+start_time = time.time()
 
 st.markdown(
     "### Enter a movie and Cinema Suggestions will show you 10 of the most similar movies based on clustering user ratings using the K Means Algorithm"
@@ -15,20 +14,20 @@ st.markdown(
 @st.cache
 def load_data():
     # importing preprocessed data from csvs
-    filtered_movies_df = pd.read_csv("Data_Files/movies_filtered.csv", usecols = ['id', 'genres', 'original_title', 'vote_average'])
-    filtered_ratings = pd.read_csv("Data_Files/clustered_ratings.csv")
-
-    sparse_ratings = csr_matrix(filtered_ratings.drop(['userId', 'cluster'], axis=1).values)
-    kmeans_obj = KMeans(n_clusters=4, algorithm='full').fit(sparse_ratings)
-
-    return (
-        filtered_movies_df,
-        filtered_ratings,
-        kmeans_obj
+    filtered_movies = pd.read_csv(
+        "Data_Files/movies_filtered.csv",
+        usecols=["id", "genres", "original_title", "vote_average"],
     )
+    filtered_ratings = pd.read_csv("Data_Files/ratings_clustered.csv")
+    centroids = pd.read_csv("Data_Files/centroids.csv")
+
+    filtered_ratings.set_index(["userId"], inplace=True)
+    centroids.set_index(["Cluster_Label"], inplace=True)
+
+    return (filtered_movies, filtered_ratings, centroids)
 
 
-movies, ratings, kmeans_obj = load_data()
+movies, ratings, centroids = load_data()
 
 # split page into columns
 c1, c2 = st.columns((1, 1))
@@ -63,23 +62,36 @@ if start_kmeans:
         user_movie3: user_rating3 / 2,
     }
 
-    ratings_arr = [0] * (len(ratings.columns)-2)
+    # initialize ratings for user
+    ratings_arr = [0] * (len(ratings.columns) - 2)
+    # update the values of the array based on the ratings the user entered frmo the GUI
     for movie, rating in user_movie_rating_dict.items():
-        ratings_arr [ratings.columns.get_loc(movie)] = rating 
+        ratings_arr[ratings.columns.get_loc(movie)] = rating
 
-    top_movies = kmeans.get_top_movies_from_cluster(kmeans_obj, movies, ratings, ratings_arr)
+    top_movies, error = kmeans.get_top_movies_from_cluster(
+        ratings_arr, movies, ratings, centroids
+    )
 
     most_similar_movies_df = pd.DataFrame(
         {
             "Movie Title": [movie[0] for movie in top_movies],
             "Avg Rating of All Users": [movie[1] for movie in top_movies],
-            "Avg Rating of Users Similar to You": [
-                movie[2] for movie in top_movies
-            ]
+            "Avg Rating of Users Similar to You": [movie[2] for movie in top_movies],
         }
     )
 
-    #kmeans.get_cluster_for_user(user_movie_rating_dict)
-    st.table(most_similar_movies_df)
-    
-    st.table("--- %s seconds ---" % (time.time() - start_time))
+    st.table(
+        most_similar_movies_df.style.format(
+            {
+                "Avg Rating of All Users": "{:.2f}",
+                f"Avg Rating of Users Similar to You": "{:.2f}",
+            }
+        )
+    )
+
+    st.write("Time taken to get recommendations (seconds): ", time.time() - start_time)
+    st.write(
+        "Mean of Avg Ratings From Similar Users: ",
+        np.average(most_similar_movies_df[f"Avg Rating of Users Similar to You"]),
+    )
+    st.write("Distance Between User and Cluster Center: ", error)
