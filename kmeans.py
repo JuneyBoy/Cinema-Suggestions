@@ -118,9 +118,6 @@ def get_top_movies_from_cluster(
         error,
     )
 
-
-# k_means(4, pd.read_csv("Data_Files/ratings_filtered.csv"))
-
 # call kmeans 20 times, and plot the SSE for each run to find optimal value of k
 def generate_elbow_plot(ks_to_test=10):
     errors = [
@@ -132,8 +129,7 @@ def generate_elbow_plot(ks_to_test=10):
     plt.title("Elbow Plot")
     plt.xlabel("k")
     plt.ylabel("SSE")
-
     plt.show()
 
-
+k_means(4, pd.read_csv("Data_Files/ratings_filtered.csv"))
 # generate_elbow_plot()

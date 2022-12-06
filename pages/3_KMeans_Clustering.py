@@ -1,19 +1,10 @@
 import pandas as pd
 import streamlit as st
-<<<<<<< HEAD
-from scipy.sparse import csr_matrix
-from sklearn.cluster import KMeans
-import kmeans
-import time
-start_time = time.time()
-
-=======
 import time
 import kmeans
 import numpy as np
 
 start_time = time.time()
->>>>>>> ab71f8b67c38cffe5b2bf5d6d08a60fb1a53ce92
 
 st.markdown(
     "### Enter a movie and Cinema Suggestions will show you 10 of the most similar movies based on clustering user ratings using the K-Means Algorithm"
@@ -36,12 +27,8 @@ def load_data():
 
     return (filtered_movies, filtered_ratings, centroids)
 
-<<<<<<< HEAD
-movies, ratings, kmeans_obj = load_data()
-=======
 
 movies, ratings, centroids = load_data()
->>>>>>> ab71f8b67c38cffe5b2bf5d6d08a60fb1a53ce92
 
 # split page into columns
 c1, c2 = st.columns((1, 1))
@@ -83,30 +70,14 @@ if start_kmeans:
     for movie, rating in user_movie_rating_dict.items():
         ratings_arr[ratings.columns.get_loc(movie)] = rating
 
-<<<<<<< HEAD
-    top_movies = kmeans.get_top_movies_from_cluster(kmeans_obj, movies, ratings, ratings_arr, 10)
-=======
     top_movies, error = kmeans.get_top_movies_from_cluster(
         ratings_arr, movies, ratings, centroids
     )
->>>>>>> ab71f8b67c38cffe5b2bf5d6d08a60fb1a53ce92
 
     most_similar_movies_df = pd.DataFrame(
         {
             "Movie Title": [movie[0] for movie in top_movies],
             "Avg Rating of All Users": [movie[1] for movie in top_movies],
-<<<<<<< HEAD
-            "Avg Rating of Users Similar to You": [movie[2] for movie in top_movies]
-        }
-    )
-
-    st.markdown(user_movie_rating_dict)
-    st.markdown("##### 10 Most Similar Movies")
-    st.table(most_similar_movies_df)
-    
-    st.markdown("##### Execution Time")
-    st.table("--- %s seconds ---" % (time.time() - start_time))
-=======
             "Avg Rating of Users Similar to You": [movie[2] for movie in top_movies],
         }
     )
@@ -126,4 +97,3 @@ if start_kmeans:
         np.average(most_similar_movies_df[f"Avg Rating of Users Similar to You"]),
     )
     st.write("Distance Between User and Cluster Center: ", error)
->>>>>>> ab71f8b67c38cffe5b2bf5d6d08a60fb1a53ce92
