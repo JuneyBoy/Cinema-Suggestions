@@ -10,7 +10,7 @@ st.markdown(
     "### Enter a movie and Cinema Suggestions will show you 10 of the most similar movies based on clustering user ratings using the K-Means Algorithm"
 )
 
-# only needs to do this one time, so adding the cache statement will make it so this function only runs the first time the page is loaded but doesn't run 
+# only needs to do this one time, so adding the cache statement will make it so this function only runs the first time the page is loaded but doesn't run
 # again as long as the user doesn't close the tab in their browser
 @st.cache
 def load_data():
@@ -37,9 +37,9 @@ c1, c2 = st.columns((1, 1))
 movie_title_list = [title for title in movies["original_title"]]
 
 # select box for 3 movies
-user_movie1 = c1.selectbox("Movie 1:", movie_title_list)
-user_movie2 = c1.selectbox("Movie 2:", movie_title_list)
-user_movie3 = c1.selectbox("Movie 3:", movie_title_list)
+user_movie1 = c1.selectbox("Movie 1:", movie_title_list, index=0)
+user_movie2 = c1.selectbox("Movie 2:", movie_title_list, index=1)
+user_movie3 = c1.selectbox("Movie 3:", movie_title_list, index=2)
 
 # rating sliders for 3 movies
 user_rating1 = c2.slider(
@@ -65,7 +65,7 @@ if start_kmeans:
     }
 
     # initialize ratings for user
-    ratings_arr = [0] * (len(ratings.columns) - 2)
+    ratings_arr = [0] * (len(ratings.columns) - 1)
     # update the values of the array based on the ratings the user entered frmo the GUI
     for movie, rating in user_movie_rating_dict.items():
         ratings_arr[ratings.columns.get_loc(movie)] = rating
