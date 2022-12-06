@@ -2,16 +2,17 @@ import pandas as pd
 import streamlit as st
 from scipy.sparse import csr_matrix
 from sklearn.cluster import KMeans
+import kmeans
 import time
 start_time = time.time()
 
-import kmeans
 
 st.markdown(
-    "### Enter a movie and Cinema Suggestions will show you 10 of the most similar movies based on clustering user ratings using the K Means Algorithm"
+    "### Enter a movie and Cinema Suggestions will show you 10 of the most similar movies based on clustering user ratings using the K-Means Algorithm"
 )
 
-# only needs to do this one time, so adding the cache statement will make it so this function only runs the first time the page is loaded but doesn't run again as long as the user doesn't close the tab in their browser
+# only needs to do this one time, so adding the cache statement will make it so this function only runs the first time the page is loaded but doesn't run 
+# again as long as the user doesn't close the tab in their browser
 @st.cache
 def load_data():
     # importing preprocessed data from csvs
@@ -26,7 +27,6 @@ def load_data():
         filtered_ratings,
         kmeans_obj
     )
-
 
 movies, ratings, kmeans_obj = load_data()
 
@@ -57,6 +57,7 @@ start_kmeans = st.button("FIND RECOMMENDATIONS")
 
 if start_kmeans:
     # store input as dict, key: movie_title, value: rating
+    # dividing by 2 because the rating is out of 10 where 10 = 5
     user_movie_rating_dict = {
         user_movie1: user_rating1 / 2,
         user_movie2: user_rating2 / 2,
@@ -67,19 +68,19 @@ if start_kmeans:
     for movie, rating in user_movie_rating_dict.items():
         ratings_arr [ratings.columns.get_loc(movie)] = rating 
 
-    top_movies = kmeans.get_top_movies_from_cluster(kmeans_obj, movies, ratings, ratings_arr)
+    top_movies = kmeans.get_top_movies_from_cluster(kmeans_obj, movies, ratings, ratings_arr, 10)
 
     most_similar_movies_df = pd.DataFrame(
         {
             "Movie Title": [movie[0] for movie in top_movies],
             "Avg Rating of All Users": [movie[1] for movie in top_movies],
-            "Avg Rating of Users Similar to You": [
-                movie[2] for movie in top_movies
-            ]
+            "Avg Rating of Users Similar to You": [movie[2] for movie in top_movies]
         }
     )
 
-    #kmeans.get_cluster_for_user(user_movie_rating_dict)
+    st.markdown(user_movie_rating_dict)
+    st.markdown("##### 10 Most Similar Movies")
     st.table(most_similar_movies_df)
     
+    st.markdown("##### Execution Time")
     st.table("--- %s seconds ---" % (time.time() - start_time))
