@@ -81,7 +81,7 @@ if start_kmeans:
             "Avg Rating of Users Similar to You": [movie[2] for movie in top_movies],
         }
     )
-
+    most_similar_movies_df.index += 1
     st.table(
         most_similar_movies_df.style.format(
             {
